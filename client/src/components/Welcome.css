@@ -1,0 +1,200 @@
+/* 欢迎界面专用样式 */
+.welcome-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.welcome-card {
+    background-color: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    animation: welcomeSlideIn 0.6s ease-out;
+}
+
+@keyframes welcomeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.welcome-title {
+    font-size: 36px;
+    color: #2c3e50;
+    margin: 0 0 10px 0;
+    font-weight: bold;
+}
+
+.welcome-subtitle {
+    font-size: 16px;
+    color: #7f8c8d;
+    margin: 0;
+}
+
+.welcome-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    border: 2px solid #ecf0f1;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+.welcome-input:focus {
+    border-color: #3498db;
+}
+
+.welcome-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: translateY(0);
+}
+
+.welcome-button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+.welcome-button.primary {
+    background-color: #27ae60;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+}
+
+.welcome-button.primary:not(:disabled):hover {
+    background-color: #2ecc71;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+}
+
+.welcome-button.secondary {
+    background-color: #e74c3c;
+    padding: 15px 25px;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.welcome-button.secondary:not(:disabled):hover {
+    background-color: #c0392b;
+}
+
+.join-room-container {
+    display: flex;
+    gap: 10px;
+}
+
+.join-room-input {
+    flex: 1;
+    padding: 15px;
+    font-size: 16px;
+    border: 2px solid #ecf0f1;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.join-room-input:focus {
+    border-color: #e74c3c;
+}
+
+.welcome-divider {
+    display: flex;
+    align-items: center;
+    margin: 30px 0;
+    color: #bdc3c7;
+}
+
+.welcome-divider-line {
+    flex: 1;
+    height: 1px;
+    background-color: #ecf0f1;
+}
+
+.welcome-divider-text {
+    margin: 0 15px;
+    font-size: 14px;
+}
+
+.welcome-tip {
+    margin-top: 30px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.welcome-label {
+    display: block;
+    font-size: 14px;
+    color: #34495e;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .welcome-card {
+        padding: 30px 20px;
+        margin: 10px;
+    }
+    
+    .welcome-title {
+        font-size: 28px;
+    }
+    
+    .join-room-container {
+        flex-direction: column;
+    }
+    
+    .welcome-button.secondary {
+        width: 100%;
+        white-space: normal;
+    }
+}
+
+@media (max-width: 400px) {
+    .welcome-card {
+        padding: 20px 15px;
+    }
+    
+    .welcome-title {
+        font-size: 24px;
+    }
+}
+
+/* 加载动画 */
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

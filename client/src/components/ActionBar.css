@@ -1,0 +1,253 @@
+.action-bar {
+    margin: 20px;
+    padding: 25px;
+    border: 3px solid #007bff;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    box-shadow: 0 8px 24px rgba(0, 123, 255, 0.2);
+    min-width: 320px;
+    position: relative;
+    overflow: hidden;
+    /* 移除会影响内容可见性的动画 */
+}
+
+.action-bar::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #007bff, #0056b3, #007bff);
+    z-index: -1;
+    border-radius: 15px;
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+/* 增强边框发光效果，替代整体脉冲 */
+@keyframes borderGlow {
+    0%, 100% { 
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 1;
+        transform: scale(1.02);
+    }
+}
+
+/* 移除会影响文字可见性的脉冲动画 */
+/* @keyframes actionBarPulse 已删除 */
+
+.action-bar.waiting {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    color: #495057;
+    text-align: center;
+    padding: 30px;
+    border: 2px dashed #007bff;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.action-bar.waiting p {
+    margin: 10px 0;
+    color: #2c3e50;
+    text-shadow: none;
+}
+
+.error-message {
+    color: #dc3545;
+    margin-bottom: 10px;
+    padding: 5px;
+    background-color: #f8d7da;
+    border-radius: 4px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.action-buttons button {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 120px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.fold-button {
+    background-color: #dc3545;
+    color: white;
+}
+
+.check-button {
+    background-color: #28a745;
+    color: white;
+}
+
+.call-button {
+    background-color: #007bff;
+    color: white;
+}
+
+.all-in-button {
+    background-color: #6f42c1;
+    color: white;
+}
+
+.raise-button {
+    background-color: #fd7e14;
+    color: white;
+}
+
+.raise-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.slider-container {
+    width: 100%;
+}
+
+.bet-slider {
+    width: 100%;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.bet-amount-display {
+    text-align: center;
+    font-weight: bold;
+}
+
+/* 玩家信息显示区域 */
+.player-info {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    border: 1px solid rgba(0, 123, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.player-info p {
+    margin: 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+    text-shadow: none;
+}
+
+button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 快速加注按钮样式 */
+.quick-bet-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.quick-bet-button {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 2px solid #007bff;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    color: #007bff;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    min-width: 65px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.quick-bet-button:hover {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.quick-bet-button:active {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.quick-bet-button.all-in-quick {
+    border-color: #dc3545;
+    color: #dc3545;
+    background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+.quick-bet-button.all-in-quick:hover {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+/* 相对于池的按钮样式 */
+.quick-bet-button.pot-button {
+    border-color: #28a745;
+    color: #28a745;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fff9 100%);
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.quick-bet-button.pot-button:hover {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+}
+
+/* 按钮内的数字样式 - 防止偏移 */
+button .animated-number {
+    vertical-align: baseline !important;
+    display: inline !important;
+    position: static !important;
+    transform-origin: center center !important;
+}
+
+button .animated-number.animating {
+    transform: none !important; /* 在按钮内禁用缩放动画 */
+}
+
+button .animated-number.pulse {
+    animation: none !important; /* 在按钮内禁用脉冲动画 */
+    text-shadow: none !important;
+}
+
+/* 保留颜色变化但不影响布局 */
+button .animated-number.chips-loss {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+button .animated-number.pot-increase {
+    color: #ffc107;
+    font-weight: bold;
+}

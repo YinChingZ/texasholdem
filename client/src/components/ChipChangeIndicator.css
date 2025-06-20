@@ -1,0 +1,148 @@
+/* 筹码变动指示器样式 */
+.chip-change-indicator {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+    animation: chipChangeFloat 2s ease-out forwards;
+    font-weight: bold;
+    font-size: 16px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 位置定位 */
+.chip-change-indicator.position-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.chip-change-indicator.position-top {
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.chip-change-indicator.position-bottom {
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.chip-change-indicator.position-left {
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+}
+
+.chip-change-indicator.position-right {
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+}
+
+/* 内容容器 */
+.chip-change-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 增加筹码样式 */
+.chip-change-indicator.gain .chip-change-content {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.9), rgba(34, 139, 58, 0.9));
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.chip-change-indicator.gain .chip-change-icon {
+    animation: iconBounce 0.6s ease-out;
+}
+
+/* 减少筹码样式 */
+.chip-change-indicator.loss .chip-change-content {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.9), rgba(186, 45, 58, 0.9));
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.chip-change-indicator.loss .chip-change-icon {
+    animation: iconShake 0.6s ease-out;
+}
+
+/* 浮动动画 */
+@keyframes chipChangeFloat {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) translateY(0);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2) translateY(-10px);
+    }
+    30% {
+        transform: translate(-50%, -50%) scale(1) translateY(-15px);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) translateY(-25px);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8) translateY(-40px);
+    }
+}
+
+/* 图标弹跳动画 */
+@keyframes iconBounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-8px);
+    }
+    60% {
+        transform: translateY(-4px);
+    }
+}
+
+/* 图标摇摆动画 */
+@keyframes iconShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-3px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(3px);
+    }
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+    .chip-change-indicator {
+        font-size: 14px;
+    }
+    
+    .chip-change-content {
+        padding: 6px 12px;
+        gap: 6px;
+    }
+}
+
+/* 高对比度支持 */
+@media (prefers-contrast: high) {
+    .chip-change-indicator.gain .chip-change-content {
+        background: #28a745;
+        border: 3px solid white;
+    }
+    
+    .chip-change-indicator.loss .chip-change-content {
+        background: #dc3545;
+        border: 3px solid white;
+    }
+}

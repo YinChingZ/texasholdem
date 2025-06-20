@@ -1,0 +1,16 @@
+#root {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0;
+  text-align: left;
+  min-height: 100vh;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.App {
+  width: 100%;
+  min-height: 100vh;
+  background: transparent;
+}

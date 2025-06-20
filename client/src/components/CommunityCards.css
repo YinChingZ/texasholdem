@@ -1,0 +1,113 @@
+/* 公共牌区域样式 */
+.community-cards-container {
+    border: 3px dashed #007bff;
+    border-radius: 15px;
+    padding: 25px;
+    margin: 30px auto;
+    width: fit-content;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    box-shadow: 0 8px 24px rgba(0,123,255,0.15);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.community-cards-container::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #007bff, #0056b3, #007bff);
+    z-index: -1;
+    border-radius: 15px;
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+}
+
+.community-cards-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.community-cards-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    min-height: 120px;
+    margin-bottom: 15px;
+}
+
+/* 公共牌区域样式优化 */
+.community-cards-area .animated-card-container {
+    transition: all 0.3s ease;
+}
+
+.community-cards-area .animated-card-container:hover {
+    transform: translateY(-2px);
+}
+
+.game-phase-indicator {
+    font-size: 14px;
+    font-weight: 600;
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+    border: 1px solid rgba(0, 123, 255, 0.2);
+    animation: phaseIndicatorPulse 2s ease-in-out infinite;
+}
+
+@keyframes phaseIndicatorPulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.3);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 0 0 8px rgba(0, 123, 255, 0);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .community-cards-container {
+        padding: 20px 15px;
+        margin: 20px auto;
+    }
+    
+    .community-cards-area {
+        gap: 3px;
+    }
+    
+    .community-cards-title {
+        font-size: 14px;
+    }
+    
+    .game-phase-indicator {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .community-cards-area {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    
+    .community-cards-container {
+        padding: 15px 10px;
+    }
+}

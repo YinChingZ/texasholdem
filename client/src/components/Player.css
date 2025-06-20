@@ -1,0 +1,152 @@
+/* Player组件样式 */
+.player-container {
+    border-radius: 8px;
+    padding: 6px;
+    margin: 5px;
+    width: 120px;
+    text-align: center;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.player-container.normal {
+    border: 1px solid #666;
+    background-color: #f0f0f0;
+    transform: scale(1);
+    box-shadow: none;
+}
+
+.player-container.folded {
+    border: 1px solid #dc3545;
+    background-color: #f8d7da;
+    transform: scale(0.95);
+    opacity: 0.6;
+    filter: grayscale(50%);
+}
+
+.player-container.current-turn {
+    border: 3px solid #007bff;
+    background-color: #e3f2fd;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    animation: currentTurnGlow 2s ease-in-out infinite;
+}
+
+/* 发光动画 */
+@keyframes currentTurnGlow {
+    0%, 100% { 
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        border-color: #007bff;
+    }
+    50% { 
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
+        border-color: #0056b3;
+    }
+}
+
+.turn-indicator {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    animation: pulse 2s infinite;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.player-name {
+    margin: 4px 0;
+    font-size: 13px;
+}
+
+.player-name.normal {
+    color: #333;
+    font-weight: normal;
+}
+
+.player-name.current-turn {
+    color: #007bff;
+    font-weight: bold;
+}
+
+.player-status {
+    margin: 2px 0;
+    font-size: 11px;
+}
+
+.player-status.normal {
+    color: #666;
+    font-weight: normal;
+}
+
+.player-status.current-turn {
+    color: #007bff;
+    font-weight: bold;
+}
+
+.player-info {
+    margin: 2px 0;
+    font-size: 11px;
+    color: #666;
+}
+
+.player-hand {
+    display: flex;
+    justify-content: center;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+    0% { 
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+    50% { 
+        opacity: 0.8;
+        transform: translateX(-50%) scale(1.1);
+    }
+    100% { 
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+/* 玩家信息区域的数字样式 - 防止偏移 */
+.player-info .animated-number {
+    vertical-align: baseline !important;
+    display: inline !important;
+    position: static !important;
+}
+
+.player-info .animated-number.animating {
+    transform: scale(1.02) !important; /* 在玩家信息中使用更小的缩放 */
+}
+
+.player-info .animated-number.pulse {
+    animation-duration: 0.4s !important; /* 缩短动画时间 */
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .player-container {
+        width: 100px;
+        font-size: 11px;
+    }
+    
+    .player-name {
+        font-size: 12px;
+    }
+    
+    .turn-indicator {
+        font-size: 9px;
+        padding: 1px 6px;
+    }
+}

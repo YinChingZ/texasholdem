@@ -1,0 +1,174 @@
+:root {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #2c3e50;
+  background-color: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* CSS变量用于主题色 */
+  --primary-color: #007bff;
+  --primary-dark: #0056b3;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --light-bg: #f8f9fa;
+  --border-color: #e9ecef;
+  --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-medium: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow-heavy: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  overflow-x: hidden;
+}
+
+a {
+  font-weight: 500;
+  color: var(--primary-color);
+  text-decoration: inherit;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary-dark);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+h1 {
+  font-size: 2.5em;
+  line-height: 1.2;
+}
+
+/* 现代化按钮样式 */
+button {
+  border-radius: 10px;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #004085 100%);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+button:active {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-light);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 输入框样式 */
+input {
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  background-color: white;
+  transition: all 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--secondary-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* 全局数字偏移修复 */
+.welcome-card .animated-number,
+.game-status .animated-number,
+li .animated-number {
+    vertical-align: baseline !important;
+    display: inline !important;
+    position: static !important;
+}
+
+.welcome-card .animated-number.animating,
+.game-status .animated-number.animating,
+li .animated-number.animating {
+    transform: scale(1.02) !important;
+}
+
+.welcome-card .animated-number.pulse,
+.game-status .animated-number.pulse,
+li .animated-number.pulse {
+    animation-duration: 0.4s !important;
+}
+
+/* 确保所有容器内的数字都不会引起布局偏移 */
+div[style*="marginBottom"] .animated-number {
+    vertical-align: baseline !important;
+    display: inline !important;
+    position: static !important;
+}
+
+/* 特殊情况：行内数字的处理 */
+p .animated-number,
+span .animated-number {
+    vertical-align: baseline !important;
+    display: inline !important;
+    position: static !important;
+}
