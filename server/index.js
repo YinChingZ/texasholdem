@@ -14,8 +14,6 @@ const allowedOrigins = [
   "https://texasholdem-beige.vercel.app",
   "https://texasholdem.top",
   "https://www.texasholdem.top",
-  "https://zengrating.club",
-  "https://www.zengrating.club",
   "http://localhost:5173" // 本地开发
 ];
 
