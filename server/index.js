@@ -11,7 +11,7 @@ const server = http.createServer(app);
 // 开发时的前端 URL
 const devClientURL = 'http://localhost:5173'; // Vite 预设是 5173
 // 稍后部署在 Netlify 上的前端 URL (先用一个占位符)
-const prodClientURL = process.env.PROD_CLIENT_URL || 'https://YOUR_NETLIFY_APP_NAME.netlify.app'; 
+const prodClientURL = process.env.PROD_CLIENT_URL || 'https://texasholdem-beige.vercel.app/'; 
 
 app.use(cors({
   origin: [devClientURL, prodClientURL] // 允许这两个来源的请求
