@@ -7,20 +7,22 @@ const { Game, Player } = require('./game.js');
 const app = express();
 const server = http.createServer(app);
 
-// --- CORS 设置 ---
-// 开发时的前端 URL
-const devClientURL = 'http://localhost:5173'; // Vite 预设是 5173
-// 稍后部署在 Netlify 上的前端 URL (先用一个占位符)
-const prodClientURL = process.env.PROD_CLIENT_URL || 'https://texasholdem-beige.vercel.app/'; 
+// --- 這是你需要修改或確認的地方 ---
 
+// 1. 直接、準確地定義你前端的 URL
+const frontendURL = "https://texasholdem-beige.vercel.app";
+
+// 2. 設定 Express 的 CORS
+//    讓普通的 HTTP 請求 (非 WebSocket) 能通過
 app.use(cors({
-  origin: [devClientURL, prodClientURL] // 允许这两个来源的请求
+  origin: frontendURL
 }));
-// --- CORS 设置结束 ---
 
+// 3. 設定 Socket.IO 的 CORS
+//    這是讓 WebSocket 連線能通過的關鍵
 const io = new Server(server, {
   cors: {
-    origin: [devClientURL, prodClientURL], // 同样为 Socket.IO 设置 CORS
+    origin: frontendURL,
     methods: ["GET", "POST"]
   }
 });
