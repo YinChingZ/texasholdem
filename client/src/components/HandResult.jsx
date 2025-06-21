@@ -42,7 +42,7 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
     
     if (!result) return null;
 
-    const { winners, communityCards, playersHands, handComparison } = result;
+    const { winners, communityCards, playersHands, handComparison, showAllHands } = result;
       // 处理不同格式的卡牌数据的辅助函数
     const parseCardData = (card) => {
         if (typeof card === 'string') {
@@ -110,12 +110,9 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                 
                 {/* 上半部分：公共牌和获胜者横向布局 */}
                 <div className="result-top-section">                    <div className="community-cards">
-                        <h3>公共牌</h3>
-                        <div className="cards-display">
+                        <h3>公共牌</h3>                        <div className="cards-display">
                             {safeCommunityCards.map((card, index) => {
-                                console.log('Community card data:', card, 'Type:', typeof card);
                                 const { suit, rank } = parseCardData(card);
-                                console.log('Processed card:', { suit, rank });
                                 
                                 return (
                                     <Card
@@ -144,9 +141,8 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                 </div>
 
                 {/* 中间部分：牌型对比和玩家手牌横向布局 */}
-                <div className="result-middle-section">
-                    {/* 牌型对比 */}
-                    {handComparison && handComparison.rankedPlayers && handComparison.rankedPlayers.length > 0 && (
+                <div className="result-middle-section">                    {/* 牌型对比 */}
+                    {showAllHands && handComparison && handComparison.rankedPlayers && handComparison.rankedPlayers.length > 0 && (
                         <div className="hand-comparison">
                             <h3>牌型排名</h3>
                             <div className="ranked-players-grid">
@@ -167,9 +163,7 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                                 ))}
                             </div>
                         </div>
-                    )}
-
-                    {/* 玩家手牌详情 */}
+                    )}                    {/* 玩家手牌详情 */}
                     {safePlayersHands.length > 0 && (
                         <div className="players-hands">
                             <h3>手牌详情</h3>
@@ -192,12 +186,12 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                                                 {playerHand.handDescription}
                                             </div>
                                         )}
-                                          <div className="cards-row">                                            <div className="hole-cards-inline">
-                                                <span className="cards-label-tiny">底牌:</span>
-                                                <div className="inline-cards">
+
+                                        <div className="cards-row">
+                                            <div className="hole-cards-inline">
+                                                <span className="cards-label-tiny">底牌:</span>                                                <div className="inline-cards">
                                                     {playerHand.hand && Array.isArray(playerHand.hand) && playerHand.hand.map((card, cardIndex) => {
                                                         const processedCard = parseCardData(card);
-                                                        console.log(`Player hand card ${cardIndex}:`, card, '-> processed:', processedCard);
                                                         
                                                         return (
                                                             <Card
@@ -209,11 +203,13 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                                                         );
                                                     })}
                                                 </div>
-                                            </div>{playerHand.bestCards && Array.isArray(playerHand.bestCards) && playerHand.bestCards.length > 0 && (                                                <div className="best-cards-inline">
+                                            </div>
+
+                                            {playerHand.bestCards && Array.isArray(playerHand.bestCards) && playerHand.bestCards.length > 0 && (
+                                                <div className="best-cards-inline">
                                                     <span className="cards-label-tiny">最佳组合:</span>                                                    <div className="inline-cards">
                                                         {playerHand.bestCards.slice(0, 5).map((card, cardIndex) => {
                                                             const processedCard = parseCardData(card);
-                                                            console.log(`Best card ${cardIndex}:`, card, '-> processed:', processedCard);
                                                             
                                                             return (
                                                                 <Card
@@ -232,15 +228,28 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                                 ))}
                             </div>
                         </div>
-                    )}
-                </div>
+                    )}</div>                {/* 当手牌被隐藏时的提示 */}
+                {!showAllHands && (
+                    <div style={{
+                        padding: '15px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '8px',
+                        border: '1px solid #dee2e6',
+                        textAlign: 'center',
+                        margin: '20px 0',
+                        color: '#6c757d',
+                        fontSize: '14px'
+                    }}>
+                        🔒 房主设置为仅显示获胜者手牌，其他玩家手牌已隐藏
+                    </div>
+                )}
 
                 {/* 如果没有牌型对比数据，显示调试信息 */}
-                {(!handComparison || !handComparison.rankedPlayers || handComparison.rankedPlayers.length === 0) && (
+                {showAllHands && (!handComparison || !handComparison.rankedPlayers || handComparison.rankedPlayers.length === 0) && (
                     <div className="debug-info" style={{color: 'yellow', padding: '5px', fontSize: '10px'}}>
                         调试信息: handComparison = {JSON.stringify(handComparison)}
                     </div>
-                )}                <div className="action-buttons">
+                )}<div className="action-buttons">
                     {isRoomCreator ? (
                         <button 
                             className="close-result-btn primary"

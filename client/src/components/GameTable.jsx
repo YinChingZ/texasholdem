@@ -8,25 +8,55 @@ import Card from './Card';
 import HandResult from './HandResult';
 import AnimatedNumber from './AnimatedNumber';
 import SoundSettings from './SoundSettings';
+import GlobalMessage from './GlobalMessage';
 import { useSocket } from '../contexts/SocketContext';
 import { useGameSounds } from '../hooks/useGameSounds';
+import { useGlobalMessages } from '../hooks/useGlobalMessages';
 import './Welcome.css';
 
 const GameTable = () => {
-    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator } = useSocket();    const [nickname, setNickname] = React.useState('');
-    const [roomIdInput, setRoomIdInput] = React.useState('');
-    const [showSoundSettings, setShowSoundSettings] = React.useState(false);
+    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator, roomSettings } = useSocket();const [nickname, setNickname] = React.useState('');
+    const [roomIdInput, setRoomIdInput] = React.useState('');    const [showSoundSettings, setShowSoundSettings] = React.useState(false);
     const [previousGameState, setPreviousGameState] = React.useState(null);
     const [copySuccess, setCopySuccess] = React.useState(false);
-
-    // 使用游戏音效Hook
+    const [showAllHands, setShowAllHands] = React.useState(true); // 本地状态跟踪    // 使用游戏音效Hook
     useGameSounds(gameState, previousGameState);
+    
+    // 使用全局消息Hook
+    const { messages } = useGlobalMessages(gameState, previousGameState);
 
     // 更新previousGameState
     React.useEffect(() => {
         if (gameState) {
             setPreviousGameState(gameState);
-        }    }, [gameState]);
+        }    }, [gameState]);    // 监听设置变化，同步本地状态
+    React.useEffect(() => {
+        if (roomSettings && typeof roomSettings.showAllHands === 'boolean') {
+            setShowAllHands(roomSettings.showAllHands);
+        }
+    }, [roomSettings]);
+
+    // 备用：从游戏状态中获取设置（向后兼容）
+    React.useEffect(() => {
+        if (gameState?.settings && !roomSettings) {
+            if (typeof gameState.settings.showAllHands === 'boolean') {
+                setShowAllHands(gameState.settings.showAllHands);
+            }
+        }
+    }, [gameState?.settings, roomSettings]);
+
+    // 当进入房间时，初始化本地设置状态
+    React.useEffect(() => {
+        if (gameState && room && isRoomCreator) {
+            // 如果设置还没有被初始化，使用默认值
+            if (gameState.settings && typeof gameState.settings.showAllHands === 'boolean') {
+                setShowAllHands(gameState.settings.showAllHands);
+            } else {
+                // 默认值为 true
+                setShowAllHands(true);
+            }
+        }
+    }, [room, gameState, isRoomCreator]);
 
     const handleCreateRoom = () => {
         if (nickname) {
@@ -68,6 +98,13 @@ const GameTable = () => {
                 alert(`请手动复制房间号: ${room.id}`);
             }
             document.body.removeChild(textArea);
+        }
+    };    const handleSettingsChange = (setting, value) => {
+        if (room && socket) {
+            socket.emit('updateRoomSettings', { 
+                roomId: room.id, 
+                settings: { [setting]: value } 
+            });
         }
     };// 1. User has not joined or created a room yet
     if (!room) {
@@ -259,8 +296,7 @@ const GameTable = () => {
                                 </span>                            )}
                         </div>
                     </div>
-                    
-                    {/* 显示房主信息 */}
+                      {/* 显示房主信息 */}
                     {gameState && gameState.creator && (
                         <div style={{ 
                             marginBottom: '20px',
@@ -276,6 +312,64 @@ const GameTable = () => {
                             ) : (
                                 <span>👑 房主: {gameState.players?.find(p => p.id === gameState.creator)?.nickname || '未知'}</span>
                             )}
+                        </div>
+                    )}
+
+                    {/* 房主游戏设置 */}
+                    {isRoomCreator && (
+                        <div style={{ 
+                            marginBottom: '20px',
+                            padding: '15px',
+                            backgroundColor: '#fff3cd',
+                            borderRadius: '8px',
+                            border: '1px solid #ffeaa7',
+                            fontSize: '14px'
+                        }}>
+                            <h4 style={{ 
+                                margin: '0 0 10px 0', 
+                                fontSize: '16px', 
+                                color: '#856404',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}>
+                                ⚙️ 游戏设置
+                            </h4>
+                            
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '10px',
+                                flexWrap: 'wrap' 
+                            }}>
+                                <label style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    color: '#856404',
+                                    fontWeight: '500'
+                                }}>                                    <input
+                                        type="checkbox"
+                                        checked={showAllHands}                                        onChange={(e) => {
+                                            console.log('Checkbox clicked, new value:', e.target.checked);
+                                            setShowAllHands(e.target.checked); // 立即更新本地状态
+                                            handleSettingsChange('showAllHands', e.target.checked);
+                                        }}
+                                        style={{
+                                            transform: 'scale(1.2)',
+                                            accentColor: '#ffc107'
+                                        }}
+                                    />
+                                    🃏 一手结束后显示所有玩家手牌
+                                </label>
+                                  <span style={{ 
+                                    fontSize: '12px', 
+                                    color: '#6c757d',
+                                    fontStyle: 'italic'                                }}>
+                                    (关闭后仅显示获胜者手牌)
+                                </span>
+                            </div>
                         </div>
                     )}
                     
@@ -388,25 +482,49 @@ const GameTable = () => {
                 backgroundColor: '#f8f9fa',
                 borderRadius: '10px',
                 border: '1px solid #dee2e6'
-            }}>
-                <h2 className="room-title" style={{ 
-                    margin: '0 0 20px 0', 
-                    fontSize: '24px', 
-                    textAlign: 'center',
-                    color: '#495057'
-                }}>房间: {room.id}</h2>                {/* 玩家信息区域 */}
+            }}>                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '15px',
+                    marginBottom: '20px',
+                    flexWrap: 'wrap'
+                }}>
+                    <h2 className="room-title" style={{ 
+                        margin: '0', 
+                        fontSize: '24px', 
+                        color: '#495057'
+                    }}>房间: {room.id}</h2>
+                    
+                    {/* 游戏设置状态指示器 */}
+                    <div style={{
+                        padding: '4px 8px',
+                        backgroundColor: gameState.settings?.showAllHands !== false ? '#d1ecf1' : '#f8d7da',
+                        color: gameState.settings?.showAllHands !== false ? '#0c5460' : '#721c24',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        border: `1px solid ${gameState.settings?.showAllHands !== false ? '#bee5eb' : '#f5c6cb'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                    }}>
+                        {gameState.settings?.showAllHands !== false ? '🃏 显示手牌' : '🔒 隐藏手牌'}
+                    </div>
+                </div>{/* 玩家信息区域 */}
                 <div className="players-container" style={{ 
                     display: 'flex', 
                     justifyContent: 'space-around', 
                     flexWrap: 'wrap', 
                     marginBottom: '30px',
                     padding: '0 20px'
-                }}>
-                    {gameState.players.map(player => (
+                }}>                    {gameState.players.map((player, index) => (
                         <Player 
                             key={player.id} 
                             player={player} 
                             isCurrentTurn={gameState.currentPlayerTurn === player.id}
+                            gameState={gameState}
+                            playerIndex={index}
                         />
                     ))}
                 </div>
@@ -487,7 +605,8 @@ const GameTable = () => {
                 }}>
                     {me && <ActionBar roomId={room.id} player={me} gameState={gameState} />}
                 </div>
-            </div>              {/* 聊天区域 */}            <div className="chat-area" style={{ 
+            </div>            {/* 聊天区域 */}            
+            <div className="chat-area" style={{ 
                 flexShrink: 0,
                 width: '280px',
                 maxWidth: '280px',
@@ -496,7 +615,17 @@ const GameTable = () => {
                 height: '100%',
                 overflow: 'hidden'
             }}>
-                <ChatBox roomId={room.id} />
+                {/* ChatBox容器，限制其最大高度 */}
+                <div style={{ 
+                    flex: '1', 
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0, // 重要：允许flex子元素缩小
+                    maxHeight: 'calc(100% - 60px)' // 为音效按钮留出空间
+                }}>
+                    <ChatBox roomId={room.id} />
+                </div>
                 
                 {/* 音效设置按钮放在聊天框下方 */}
                 <button 
@@ -516,7 +645,10 @@ const GameTable = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '8px'
+                        gap: '8px',
+                        flexShrink: 0,
+                        height: '40px', // 固定按钮高度
+                        alignSelf: 'stretch' // 拉伸以适应容器宽度
                     }}
                     onMouseEnter={(e) => {
                         e.target.style.transform = 'scale(1.05)';
@@ -530,7 +662,8 @@ const GameTable = () => {
                 </button>
             </div>
             
-            {/* 手牌结果遮罩层 */}{handResult && (                <HandResult 
+            {/* 手牌结果遮罩层 */}
+            {handResult && (<HandResult 
                     result={handResult} 
                     socket={socket}
                     roomId={room.id}                    onClose={() => {
@@ -538,12 +671,25 @@ const GameTable = () => {
                         clearHandResult();
                     }}
                 />
-            )}
-              {/* 音效设置弹窗 */}
+            )}            {/* 音效设置弹窗 */}
             <SoundSettings 
                 isOpen={showSoundSettings} 
                 onClose={() => setShowSoundSettings(false)} 
             />
+            
+            {/* 全局消息特效 */}
+            {messages.map(message => (
+                <GlobalMessage
+                    key={message.id}
+                    type={message.type}
+                    message={message.message}
+                    show={message.show}
+                    duration={message.duration}
+                    onComplete={() => {
+                        // 消息完成时的处理可以在这里添加
+                    }}
+                />
+            ))}
         </div>
     );
 };

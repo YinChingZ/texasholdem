@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import AnimatedCard from './AnimatedCard';
 import AnimatedNumber from './AnimatedNumber';
 import ChipChangeIndicator from './ChipChangeIndicator';
+import PlayerRole from './PlayerRole';
 import './Player.css';
 
-const Player = ({ player, isCurrentTurn = false }) => {
+const Player = ({ player, isCurrentTurn = false, gameState = null, playerIndex = -1 }) => {
     const [previousChips, setPreviousChips] = useState(player.chips);
     const [showChipChange, setShowChipChange] = useState(false);
     const [chipChange, setChipChange] = useState(0);
@@ -35,15 +36,34 @@ const Player = ({ player, isCurrentTurn = false }) => {
     };
 
     const statusDisplay = getStatusDisplay(player.status);
+      // 判断玩家角色
+    const getPlayerRole = () => {
+        if (!gameState || !player) return null;
+        
+        // 在游戏进行中，服务器发送的位置信息是基于activePlayers的索引
+        // 我们需要根据玩家ID来判断角色，而不是依赖playerIndex
+        const dealerPlayer = gameState.players[gameState.dealerPosition];
+        const smallBlindPlayer = gameState.players[gameState.smallBlindPosition];
+        const bigBlindPlayer = gameState.players[gameState.bigBlindPosition];
+        
+        if (dealerPlayer && player.id === dealerPlayer.id) {
+            return 'dealer';
+        } else if (smallBlindPlayer && player.id === smallBlindPlayer.id) {
+            return 'smallBlind';
+        } else if (bigBlindPlayer && player.id === bigBlindPlayer.id) {
+            return 'bigBlind';
+        }
+        return null;
+    };
+
+    const playerRole = getPlayerRole();
     
     // 确定容器的CSS类
     const getContainerClass = () => {
         if (isCurrentTurn) return 'current-turn';
         if (player.status === 'folded') return 'folded';
         return 'normal';
-    };
-
-    return (
+    };    return (
         <div className={`player-container ${getContainerClass()}`}>
             {/* 当前回合指示器 */}
             {isCurrentTurn && (
@@ -83,6 +103,16 @@ const Player = ({ player, isCurrentTurn = false }) => {
                         isCommunityCard={false}
                     />                ))}
             </div>
+            
+            {/* 玩家角色指示器 - 移到底部 */}
+            {playerRole && (
+                <div className="player-role-container">
+                    <PlayerRole 
+                        role={playerRole} 
+                        isActive={gameState?.gameState !== 'WAITING'} 
+                    />
+                </div>
+            )}
             
             {/* 筹码变动指示器 */}
             <ChipChangeIndicator

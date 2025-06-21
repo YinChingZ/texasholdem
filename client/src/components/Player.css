@@ -103,6 +103,13 @@
     justify-content: center;
 }
 
+/* 玩家角色容器 - 底部显示 */
+.player-role-container {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+}
+
 /* 脉冲动画 */
 @keyframes pulse {
     0% { 

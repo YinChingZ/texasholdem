@@ -172,3 +172,86 @@ span .animated-number {
     display: inline !important;
     position: static !important;
 }
+
+/* 移动端响应式布局优化 */
+@media (max-width: 768px) {
+  .game-main-container {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh;
+    padding: 5px !important;
+  }
+  
+  .game-area {
+    min-width: auto !important;
+    max-width: none !important;
+    margin-bottom: 10px;
+    order: 1;
+  }
+  
+  .chat-area {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    order: 2;
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-main-container {
+    padding: 5px !important;
+    gap: 10px !important;
+  }
+  
+  .players-container {
+    padding: 0 10px !important;
+  }
+  
+  .center-area {
+    padding: 15px 20px !important;
+    flex-direction: column !important;
+    gap: 15px;
+  }
+  
+  .private-cards-area {
+    margin: 0 !important;
+  }
+  
+  .chat-area {
+    max-height: 40vh !important;
+  }
+}
+
+/* 确保游戏在横屏模式下的适配 */
+@media (max-width: 768px) and (orientation: landscape) {
+  .game-main-container {
+    flex-direction: row !important;
+  }
+  
+  .chat-area {
+    width: 280px !important;
+    max-width: 280px !important;
+    height: 100% !important;
+    max-height: none !important;
+  }
+}
+
+/* 聊天区域和音效按钮的布局优化 */
+.chat-area {
+    min-height: 400px; /* 确保有足够空间 */
+}
+
+/* 移动端聊天区域优化 */
+@media (max-width: 768px) {
+    .game-main-container .chat-area {
+        min-height: 300px !important;
+        height: auto !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .game-main-container .chat-area {
+        min-height: 250px !important;
+    }
+}

@@ -42,20 +42,29 @@ const generateRoomId = () => {
     return Math.random().toString(36).substr(2, 6);
 }
 
+// 确保房间设置的辅助函数
+const ensureRoomSettings = (room) => {
+    if (!room.settings) {
+        room.settings = { showAllHands: true };
+        console.log('房间设置被重新初始化为默认值');
+    }
+    return room;
+};
+
 const broadcastGameState = (roomId) => {
     const room = rooms.get(roomId);
+    
     if (!room || !room.game) return;
+
+    // 确保房间有设置
+    if (!room.settings) {
+        room.settings = { showAllHands: true };
+    }
 
     const { game } = room;
     const gameStateData = game._getGameState();
-      console.log(`Broadcasting game state for room ${roomId}:`, {
-        gameState: gameStateData.gameState,
-        playersCount: gameStateData.players.length,
-        roomPlayersCount: Object.keys(room.players).length,
-        players: gameStateData.players.map(p => ({ id: p.id, nickname: p.nickname, chips: p.chips })),
-        roomPlayers: Object.keys(room.players)
-    });
-      const publicGameState = {
+
+    const publicGameState = {
         roomId: roomId,
         mainPot: gameStateData.mainPot,
         sidePots: gameStateData.sidePots,
@@ -69,34 +78,45 @@ const broadcastGameState = (roomId) => {
         smallBlindPosition: gameStateData.smallBlindPosition,
         bigBlindPosition: gameStateData.bigBlindPosition,
         players: gameStateData.players,
-        creator: room.creator  // 添加房间创建者信息
+        creator: room.creator,
+        settings: room.settings
     };
 
     io.to(roomId).emit('gameStateUpdate', publicGameState);
 };
 
 io.on('connection', (socket) => {
-  console.log(`a user connected: ${socket.id}`);  socket.on('createRoom', ({ nickname }) => {
+  socket.on('createRoom', ({ nickname }) => {
     if (!nickname || nickname.trim() === '') {
         return socket.emit('error', { message: '昵称不能为空' });
     }
     
     const roomId = generateRoomId();
     const player = new Player(socket.id, nickname.trim());
-    const game = new Game([player]);
-
-    rooms.set(roomId, {
+    const game = new Game([player]);    rooms.set(roomId, {
         roomId,
         players: { [socket.id]: player },
         game,
         maxPlayers: 8,
-        creator: socket.id  // 追踪房间创建者
+        creator: socket.id,
+        settings: {
+            showAllHands: true
+        }
     });
+    
+    const savedRoom = rooms.get(roomId);
     socket.join(roomId);
+
     socket.emit('roomCreated', { roomId, isCreator: true });
-    console.log(`Room created: ${roomId} by ${socket.id} (creator)`);
+    
+    // 立即广播游戏状态
     broadcastGameState(roomId);
-  });  socket.on('joinRoom', ({ roomId, nickname }) => {
+    
+    // 发送设置确认事件给创建者
+    socket.emit('roomSettingsUpdate', { settings: savedRoom.settings });
+  });
+
+  socket.on('joinRoom', ({ roomId, nickname }) => {
     if (!nickname || nickname.trim() === '') {
         return socket.emit('error', { message: '昵称不能为空' });
     }
@@ -117,15 +137,15 @@ io.on('connection', (socket) => {
 
     const player = new Player(socket.id, nickname.trim());
     room.players[socket.id] = player;
-    room.game.addPlayer(player);
-
-    socket.join(roomId);
+    room.game.addPlayer(player);    socket.join(roomId);
     // 通知是否为房间创建者
     socket.emit('roomJoined', { roomId, isCreator: room.creator === socket.id });
     io.to(roomId).emit('playerJoined', { roomId, players: room.game.players.map(p => p.id) });
-    console.log(`${socket.id} joined room: ${roomId}`);
+
     broadcastGameState(roomId);
-  });  socket.on('startGame', ({ roomId }) => {
+  });
+
+  socket.on('startGame', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room || !room.game) {
         return socket.emit('error', { message: '房间不存在' });
@@ -162,14 +182,14 @@ io.on('connection', (socket) => {
                 io.to(player.id).emit('dealPrivateCards', { hand: player.hand });
             });
         }
-        
-        broadcastGameState(roomId);
-        console.log(`Game started in room: ${roomId}`);
+          broadcastGameState(roomId);
     } catch (error) {
         console.error('Error starting game:', error);
         socket.emit('error', { message: error.message });
     }
-  });  socket.on('playerAction', ({ roomId, action, betAmount }) => {
+  });
+
+  socket.on('playerAction', ({ roomId, action, betAmount }) => {
     const room = rooms.get(roomId);
     if (!room || !room.game) {
         return socket.emit('error', { message: '房间不存在' });
@@ -180,33 +200,46 @@ io.on('connection', (socket) => {
     if (room.game.gameState === 'WAITING' || room.game.gameState === 'SHOWDOWN_COMPLETE') {
         return socket.emit('error', { message: '游戏尚未开始或已结束' });
     }
-    
-    console.log(`Player action received:`, {
-        playerId: socket.id,
-        action,
-        betAmount,
-        gameState: room.game.gameState,
-        currentBet: room.game.currentBet,
-        mainPot: room.game.mainPot
-    });
-    
-    try {
+      try {
         const result = room.game.playerAction(socket.id, action, betAmount);
         
-        console.log(`Action processed:`, {
-            result: result ? 'Hand ended' : 'Continue',
-            newGameState: room.game.gameState,
-            newMainPot: room.game.mainPot,
-            newCurrentBet: room.game.currentBet
-        });          // 检查是否有手牌结果
+        // 检查是否有手牌结果
         if (result && result.handResult) {
-            console.log('Hand result received from game:', {
-                winners: result.winners,
-                playerHandsCount: result.playerHands?.length || 0,
-                communityCardsCount: result.communityCards?.length || 0,
-                handComparison: result.handComparison
-            });            
-            // 发送完整的手牌结果 - 直接使用game.js返回的完整数据
+            // 确保房间有设置
+            if (!room.settings) {
+                room.settings = { showAllHands: true };
+            }
+            
+            const shouldShowAllHands = room.settings.showAllHands !== false;
+            
+            // 构建获胜者手牌（始终显示）
+            const winnerPlayerIds = new Set(result.winners.map(w => w.playerId));
+            
+            // 分离获胜者和其他玩家的手牌
+            const winnersHands = [];
+            const otherPlayersHands = [];
+            
+            if (result.playersHands && Array.isArray(result.playersHands)) {
+                result.playersHands.forEach(ph => {
+                    const playerHand = {
+                        ...ph,
+                        nickname: ph.nickname || room.players[ph.playerId]?.nickname || `Player ${ph.playerId}`
+                    };
+                    
+                    if (winnerPlayerIds.has(ph.playerId)) {
+                        winnersHands.push(playerHand);
+                    } else {
+                        otherPlayersHands.push(playerHand);
+                    }
+                });
+            }
+            
+            // 构建最终的手牌列表：获胜者手牌 + (根据设置显示的其他玩家手牌)
+            const finalPlayersHands = [
+                ...winnersHands,  // 获胜者手牌始终显示
+                ...(shouldShowAllHands ? otherPlayersHands : [])  // 其他玩家手牌根据设置显示
+            ];
+            
             io.to(roomId).emit('handResult', { 
                 winners: result.winners.map(winner => ({
                     playerId: winner.playerId,
@@ -215,11 +248,11 @@ io.on('connection', (socket) => {
                     handDescription: winner.handDescription,
                     handRank: winner.handRank,
                     handValue: winner.handValue
-                })),                communityCards: result.communityCards || (room.game.communityCards && Array.isArray(room.game.communityCards) ? room.game.communityCards.map(c => c.toString()) : []),
-                playersHands: (result.playersHands && Array.isArray(result.playersHands)) ? result.playersHands.map(ph => ({
-                    ...ph,
-                    nickname: ph.nickname || room.players[ph.playerId]?.nickname || `Player ${ph.playerId}`
-                })) : [],                handComparison: result.handComparison
+                })),
+                communityCards: result.communityCards || (room.game.communityCards && Array.isArray(room.game.communityCards) ? room.game.communityCards.map(c => c.toString()) : []),
+                playersHands: finalPlayersHands,
+                handComparison: shouldShowAllHands ? result.handComparison : null,
+                showAllHands: shouldShowAllHands
             });
               
             // 注释掉自动准备下一手的机制，改为手动触发
@@ -248,12 +281,8 @@ io.on('connection', (socket) => {
   });  // 新增：手动准备下一手的事件
   socket.on('prepareNextHand', ({ roomId }) => {
     try {
-        console.log(`Received prepareNextHand request for room: ${roomId}`);
-        console.log(`Available rooms:`, Array.from(rooms.keys()));
-        
         const room = rooms.get(roomId);
         if (!room || !room.game) {
-            console.error(`Room not found or no game: roomId=${roomId}, room=${!!room}, game=${!!room?.game}`);
             socket.emit('error', { message: '房间不存在或游戏未初始化' });
             return;
         }
@@ -262,19 +291,14 @@ io.on('connection', (socket) => {
         if (room.creator !== socket.id) {
             socket.emit('error', { message: '只有房间创建者才能开始下一局游戏' });
             return;
-        }
-
-        console.log(`Room found, current game state: ${room.game.gameState}`);
-          if (room.game.gameState === 'SHOWDOWN_COMPLETE') {
+        }if (room.game.gameState === 'SHOWDOWN_COMPLETE') {
             const canProceed = room.game.prepareNextHand();
             if (canProceed) {
                 // 发送新的底牌给每个活跃玩家
                 room.game.activePlayers.forEach(player => {
                     io.to(player.id).emit('dealPrivateCards', { hand: player.hand });
-                    console.log(`Dealt new private cards to player ${player.id}:`, player.hand);
                 });
                 broadcastGameState(roomId);
-                console.log(`Manually prepared next hand for room: ${roomId}`);
             } else {
                 console.log(`Cannot prepare next hand for room: ${roomId} - not enough players`);
                 io.to(roomId).emit('gameOver', { 
@@ -331,7 +355,41 @@ io.on('connection', (socket) => {
                 console.log(`${socket.id} left room: ${roomId}`);
             }
             break;
+        }    }
+  });
+    // 更新房间设置的事件
+  socket.on('updateRoomSettings', ({ roomId, settings }) => {
+    try {
+        const room = rooms.get(roomId);
+        if (!room) {
+            socket.emit('error', { message: '房间不存在' });
+            return;
         }
+
+        // 检查是否为房间创建者
+        if (room.creator !== socket.id) {
+            socket.emit('error', { message: '只有房间创建者才能修改设置' });
+            return;
+        }
+
+        // 确保房间有设置对象
+        if (!room.settings) {
+            room.settings = { showAllHands: true };
+        }
+        
+        // 更新设置
+        if (settings.hasOwnProperty('showAllHands')) {
+            room.settings.showAllHands = settings.showAllHands;
+        }
+        
+        // 立即向所有人广播设置更新
+        io.to(roomId).emit('roomSettingsUpdate', { settings: room.settings });
+        
+        // 再次广播游戏状态以确保同步
+        broadcastGameState(roomId);
+    } catch (error) {
+        console.error('Error in updateRoomSettings:', error);
+        socket.emit('error', { message: error.message });
     }
   });
 });

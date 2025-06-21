@@ -15,11 +15,11 @@ const socket = io(API_URL);
 export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(socket.connected);
     const [gameState, setGameState] = useState(null);
-    const [privateCards, setPrivateCards] = useState([]);
-    const [room, setRoom] = useState(null);
+    const [privateCards, setPrivateCards] = useState([]);    const [room, setRoom] = useState(null);
     const [error, setError] = useState(null);
     const [handResult, setHandResult] = useState(null);
     const [isRoomCreator, setIsRoomCreator] = useState(false);  // 新增：追踪是否为房间创建者
+    const [roomSettings, setRoomSettings] = useState({ showAllHands: true });  // 新增：房间设置状态
 
     useEffect(() => {
         socket.on('connect', () => {
@@ -34,15 +34,19 @@ export const SocketProvider = ({ children }) => {
             console.log('Room created:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
-        });
-
-        socket.on('roomJoined', ({ roomId, isCreator }) => {
+        });        socket.on('roomJoined', ({ roomId, isCreator }) => {
             console.log('Room joined:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
+        });        socket.on('roomSettingsUpdate', ({ settings }) => {
+            setRoomSettings(settings);
         });        socket.on('gameStateUpdate', (newGameState) => {
-            console.log('Game state updated:', newGameState);
             setGameState(newGameState);
+            
+            // 更新房间设置（从游戏状态中）
+            if (newGameState.settings) {
+                setRoomSettings(newGameState.settings);
+            }
             
             // 如果游戏状态变为WAITING，可能是新的一局开始，清除上局结果和底牌
             if (newGameState.gameState === 'WAITING') {
@@ -99,6 +103,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('disconnect');
             socket.off('roomCreated');
             socket.off('roomJoined');
+            socket.off('roomSettingsUpdate');
             socket.off('gameStateUpdate');
             socket.off('dealPrivateCards');
             socket.off('handResult');
@@ -117,7 +122,8 @@ export const SocketProvider = ({ children }) => {
         error,
         handResult,
         clearHandResult,
-        isRoomCreator  // 导出创建者状态
+        isRoomCreator,  // 导出创建者状态
+        roomSettings    // 导出房间设置状态
     };
 
     return (

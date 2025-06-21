@@ -1,0 +1,126 @@
+/* 玩家角色指示器样式 */
+.player-role {
+    position: relative;
+    min-width: 50px;
+    height: 28px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 5;
+    margin: 0 auto;
+}
+
+/* 庄家样式 */
+.player-role.dealer {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: 2px solid #ffffff;
+}
+
+.player-role.dealer.active {
+    animation: dealerPulse 2s ease-in-out infinite;
+}
+
+@keyframes dealerPulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    50% { 
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.5);
+    }
+}
+
+/* 小盲样式 */
+.player-role.smallBlind {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    border: 2px solid #ffffff;
+}
+
+.player-role.smallBlind.active {
+    animation: blindPulse 1.5s ease-in-out infinite;
+}
+
+/* 大盲样式 */
+.player-role.bigBlind {
+    background: linear-gradient(135deg, #dc3545, #e83e8c);
+    border: 2px solid #ffffff;
+}
+
+.player-role.bigBlind.active {
+    animation: blindPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes blindPulse {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+/* 角色图标和文字 */
+.role-icon {
+    margin-right: 4px;
+    font-size: 12px;
+}
+
+.role-text {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+/* 非活跃状态 */
+.player-role.inactive {
+    opacity: 0.6;
+    transform: scale(0.9);
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+    .player-role {
+        min-width: 45px;
+        height: 24px;        font-size: 10px;
+    }
+    
+    .role-icon {
+        font-size: 10px;
+        margin-right: 3px;
+    }
+    
+    .role-text {
+        font-size: 9px;
+    }
+}
+
+/* 高对比度支持 */
+@media (prefers-contrast: high) {
+    .player-role {
+        border-width: 3px;
+        text-shadow: none;
+    }
+    
+    .player-role.dealer {
+        background: #28a745;
+    }
+    
+    .player-role.smallBlind {
+        background: #ffc107;
+        color: #000;
+    }
+    
+    .player-role.bigBlind {
+        background: #dc3545;
+    }
+}

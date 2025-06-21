@@ -29,16 +29,18 @@ const ChatBox = ({ roomId }) => {
     };    return (
         <div className="chat-box" style={{ 
             width: '100%', 
+            height: '100%', // 使用父容器的全部高度
             border: '2px solid #007bff', 
             padding: '15px', 
-            margin: '0', // 移除外边距，避免超出容器
+            margin: '0',
             background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
             borderRadius: '15px',
-            height: 'fit-content',
-            maxHeight: '500px',
-            boxShadow: '0 8px 24px rgba(0, 123, 255, 0.15)',            position: 'relative',
+            boxShadow: '0 8px 24px rgba(0, 123, 255, 0.15)',            
+            position: 'relative',
             overflow: 'hidden',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column'
         }}>
             {/* 装饰性边框 */}
             <div style={{
@@ -54,7 +56,7 @@ const ChatBox = ({ roomId }) => {
             }}></div>
             
             <h5 style={{ 
-                margin: '0 0 20px 0', 
+                margin: '0 0 15px 0', 
                 fontSize: '18px', 
                 color: '#495057',
                 textAlign: 'center',
@@ -62,17 +64,18 @@ const ChatBox = ({ roomId }) => {
                 borderBottom: '2px solid #007bff',
                 fontWeight: '600',
                 textTransform: 'uppercase',
-                letterSpacing: '1px'
-            }}>💬 聊天室</h5>
-            <div style={{ 
-                height: '200px', 
+                letterSpacing: '1px',
+                flexShrink: 0
+            }}>💬 聊天室</h5>            <div style={{ 
+                flex: '1', // 使用剩余空间
                 overflowY: 'scroll', 
-                marginBottom: '20px',
+                marginBottom: '15px',
                 fontSize: '13px',
                 padding: '10px',
                 backgroundColor: '#f8f9fa',
                 borderRadius: '8px',
-                border: '1px solid #e9ecef'
+                border: '1px solid #e9ecef',
+                minHeight: '0' // 允许缩小
             }}>
                 {messages.map((msg, index) => (
                     <div key={index} style={{ marginBottom: '4px', wordWrap: 'break-word' }}>
@@ -85,13 +88,15 @@ const ChatBox = ({ roomId }) => {
                 gap: '12px',
                 alignItems: 'center',
                 width: '100%',
-                boxSizing: 'border-box'
-            }}>
-                <input 
+                boxSizing: 'border-box',
+                flexShrink: 0 // 确保输入区域不被压缩
+            }}><input 
                     type="text" 
                     value={newMessage} 
                     onChange={(e) => setNewMessage(e.target.value)} 
-                    placeholder="输入消息..."                    style={{ 
+                    placeholder="输入消息..."
+                    autoComplete="off"
+                    style={{ 
                         flex: '1',
                         fontSize: '14px',
                         padding: '12px 16px',
@@ -101,15 +106,31 @@ const ChatBox = ({ roomId }) => {
                         transition: 'all 0.3s ease',
                         backgroundColor: 'white',
                         minWidth: '0', // 防止flex项目缩小时出现问题
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        WebkitAppearance: 'none', // 移除iOS默认样式
+                        WebkitBorderRadius: '10px', // iOS圆角支持
+                        touchAction: 'manipulation', // 优化触摸响应
+                        userSelect: 'text', // 确保文本可选择
+                        WebkitUserSelect: 'text' // iOS文本选择支持
                     }}
                     onFocus={(e) => {
                         e.target.style.borderColor = '#007bff';
                         e.target.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+                        // 移动端防止页面缩放
+                        if (window.navigator.userAgent.match(/iPhone|iPad|Android/i)) {
+                            e.target.style.fontSize = '16px'; // 防止iOS自动缩放
+                        }
                     }}
                     onBlur={(e) => {
                         e.target.style.borderColor = '#e9ecef';
                         e.target.style.boxShadow = 'none';
+                        // 恢复字体大小
+                        e.target.style.fontSize = '14px';
+                    }}
+                    // 移动端优化
+                    onTouchStart={(e) => {
+                        // 确保输入框在移动端可以正常获取焦点
+                        e.currentTarget.focus();
                     }}
                 />
                 <button 
@@ -139,13 +160,89 @@ const ChatBox = ({ roomId }) => {
                 >
                     📤 发送
                 </button>
-            </form>
-            
-            {/* 添加CSS动画 */}
+            </form>              {/* 添加CSS动画和移动端优化 */}
             <style>{`
                 @keyframes borderGlow {
                     0%, 100% { opacity: 0.5; }
                     50% { opacity: 0.8; }
+                }
+                
+                /* 桌面端聊天框基本样式 */
+                .chat-box {
+                    min-height: 350px !important;
+                }
+                
+                /* 移动端聊天框优化 */
+                @media (max-width: 768px) {
+                    .chat-box {
+                        border-radius: 12px !important;
+                        padding: 12px !important;
+                        min-height: 250px !important; /* 平板端最小高度 */
+                        height: auto !important; /* 覆盖内联样式 */
+                    }
+                    
+                    .chat-input-container input {
+                        font-size: 16px !important; /* 防止iOS缩放 */
+                        padding: 12px 14px !important;
+                    }
+                    
+                    .chat-input-container button {
+                        padding: 12px 10px !important;
+                        font-size: 13px !important;
+                        min-width: 60px !important;
+                    }
+                }
+                
+                /* 手机端特殊优化 */
+                @media (max-width: 480px) {
+                    .chat-box {
+                        min-height: 200px !important; /* 手机端最小高度 */
+                        padding: 10px !important;
+                        height: auto !important; /* 覆盖内联样式 */
+                    }
+                    
+                    .chat-input-container {
+                        gap: 8px !important;
+                        flex-direction: row !important; /* 保持水平布局但调整间距 */
+                    }
+                    
+                    .chat-input-container input {
+                        flex: 1 !important;
+                        font-size: 16px !important;
+                        padding: 10px 12px !important;
+                        min-width: 0 !important;
+                    }
+                    
+                    .chat-input-container button {
+                        padding: 10px 8px !important;
+                        font-size: 12px !important;
+                        min-width: 50px !important;
+                        flex-shrink: 0 !important;
+                    }
+                    
+                    /* 标题在手机端的优化 */
+                    .chat-box > h5 {
+                        font-size: 16px !important;
+                        margin-bottom: 10px !important;
+                        padding-bottom: 8px !important;
+                    }
+                }
+                
+                /* 超小屏幕优化 */
+                @media (max-width: 320px) {
+                    .chat-box {
+                        min-height: 160px !important;
+                        padding: 8px !important;
+                    }
+                    
+                    .chat-input-container input {
+                        padding: 8px 10px !important;
+                    }
+                    
+                    .chat-input-container button {
+                        padding: 8px 6px !important;
+                        font-size: 11px !important;
+                    }
                 }
             `}</style>
         </div>
