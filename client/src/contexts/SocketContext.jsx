@@ -7,7 +7,10 @@ export const useSocket = () => {
     return useContext(SocketContext);
 };
 
-const socket = io('http://localhost:3000');
+// 使用环境变量来决定API URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+console.log('Connecting to:', API_URL); // 调试信息
+const socket = io(API_URL);
 
 export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(socket.connected);

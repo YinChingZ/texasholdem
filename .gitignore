@@ -16,6 +16,11 @@ build/
 .env.test.local
 .env.production.local
 
+# Keep example environment files
+!.env.example
+!.env.development
+!.env.production
+
 # IDE files
 .vscode/
 .idea/
