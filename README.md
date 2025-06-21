@@ -1,7 +1,5 @@
 # 在线德州扑克游戏 (Texas Hold'em Poker Game)
 
-**[🎮 在线试玩 (Live Demo)](https://texasholdem.top)**
-
 一个使用React和Node.js构建的、功能完善的在线多人德州扑克游戏。项目采用现代Web技术栈，实现了完整的游戏逻辑、实时的玩家交互和友好的用户界面。
 
 ## ✨ 功能特点
@@ -38,17 +36,17 @@
 ```mermaid
 graph TD
     subgraph "客户端 (Client)"
-        A[React UI Components] --> B{SocketContext};
-        B --> C[Socket.IO Client];
+        A["React UI Components"] --> B{"SocketContext"};
+        B --> C["Socket.IO Client"];
     end
 
     subgraph "服务器 (Server)"
-        D[Socket.IO Server] --> E{事件处理器};
-        E --> F[游戏逻辑 (game.js)];
-        F --> G[游戏状态管理];
+        D["Socket.IO Server"] --> E{"事件处理器"};
+        E --> F["游戏逻辑 (game.js)"];
+        F --> G["游戏状态管理"];
     end
 
-    C <-- Real-time Events --> D;
+    C <-- "Real-time Events" --> D;
 
     style A fill:#cde4ff
     style F fill:#d5e8d4
