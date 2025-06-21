@@ -13,11 +13,11 @@ import { useGameSounds } from '../hooks/useGameSounds';
 import './Welcome.css';
 
 const GameTable = () => {
-    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator } = useSocket();
-    const [nickname, setNickname] = React.useState('');
+    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator } = useSocket();    const [nickname, setNickname] = React.useState('');
     const [roomIdInput, setRoomIdInput] = React.useState('');
     const [showSoundSettings, setShowSoundSettings] = React.useState(false);
     const [previousGameState, setPreviousGameState] = React.useState(null);
+    const [copySuccess, setCopySuccess] = React.useState(false);
 
     // 使用游戏音效Hook
     useGameSounds(gameState, previousGameState);
@@ -38,13 +38,38 @@ const GameTable = () => {
         if (nickname && roomIdInput) {
             socket.emit('joinRoom', { roomId: roomIdInput, nickname });
         }
-    };
-
-    const handleStartGame = () => {
+    };    const handleStartGame = () => {
         if (room) {
             socket.emit('startGame', { roomId: room.id });
         }
-    };    // 1. User has not joined or created a room yet
+    };    const handleCopyRoomId = async () => {
+        try {
+            await navigator.clipboard.writeText(room.id);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000); // 2秒后隐藏成功提示
+        } catch (err) {
+            console.error('复制失败:', err);
+            // 降级处理：使用传统的选择和复制方法
+            const textArea = document.createElement('textarea');
+            textArea.value = room.id;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
+            } catch (fallbackErr) {
+                console.error('降级复制也失败:', fallbackErr);
+                // 最后的降级：显示房间号让用户手动复制
+                alert(`请手动复制房间号: ${room.id}`);
+            }
+            document.body.removeChild(textArea);
+        }
+    };// 1. User has not joined or created a room yet
     if (!room) {
         return (
             <div className="welcome-container">
@@ -158,11 +183,83 @@ const GameTable = () => {
                     borderRadius: '10px',
                     border: '1px solid #dee2e6',
                     textAlign: 'center'
-                }}>                    <h2 style={{ 
-                        margin: '0 0 30px 0', 
-                        fontSize: '28px',
-                        color: '#495057'
-                    }}>房间: {room.id}</h2>
+                }}>                    {/* 房间标题和复制功能 */}
+                    <div style={{ 
+                        marginBottom: '30px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '15px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <h2 style={{ 
+                            margin: '0', 
+                            fontSize: 'clamp(20px, 5vw, 28px)',
+                            color: '#495057',
+                            textAlign: 'center'
+                        }}>房间: {room.id}</h2>
+                        
+                        <div style={{ 
+                            display: 'flex', 
+                            gap: '10px', 
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center'
+                        }}>
+                            <button 
+                                onClick={handleCopyRoomId}                                style={{
+                                    padding: '10px 20px',
+                                    fontSize: '14px',
+                                    backgroundColor: copySuccess ? '#28a745' : '#007bff',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontWeight: '500',
+                                    minWidth: '140px',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!copySuccess) {
+                                        e.target.style.backgroundColor = '#0056b3';
+                                        e.target.style.transform = 'translateY(-1px)';
+                                        e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!copySuccess) {
+                                        e.target.style.backgroundColor = '#007bff';
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                                    }
+                                }}
+                                title="点击复制房间号"
+                            >
+                                {copySuccess ? (
+                                    <>✓ 已复制</>
+                                ) : (
+                                    <>📋 复制房间号</>
+                                )}
+                            </button>
+                              {copySuccess && (
+                                <span style={{
+                                    fontSize: '13px',
+                                    color: '#28a745',
+                                    fontWeight: '600',
+                                    background: '#d4edda',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #c3e6cb'
+                                }}>
+                                    🎉 分享给朋友吧！
+                                </span>                            )}
+                        </div>
+                    </div>
                     
                     {/* 显示房主信息 */}
                     {gameState && gameState.creator && (
