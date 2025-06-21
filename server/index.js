@@ -9,21 +9,30 @@ const server = http.createServer(app);
 
 // --- 這是你需要修改或確認的地方 ---
 
-// 1. 直接、準確地定義你前端的 URL
-const frontendURL = "https://texasholdem-beige.vercel.app";
+// 1. 定义所有允许的前端 URL
+const allowedOrigins = [
+  "https://texasholdem-beige.vercel.app",
+  "https://texasholdem.top",
+  "https://www.texasholdem.top",
+  "https://zengrating.club",
+  "https://www.zengrating.club",
+  "http://localhost:5173" // 本地开发
+];
 
 // 2. 設定 Express 的 CORS
 //    讓普通的 HTTP 請求 (非 WebSocket) 能通過
 app.use(cors({
-  origin: frontendURL
+  origin: allowedOrigins,
+  credentials: true // 如果需要支持cookies的话
 }));
 
 // 3. 設定 Socket.IO 的 CORS
 //    這是讓 WebSocket 連線能通過的關鍵
 const io = new Server(server, {
   cors: {
-    origin: frontendURL,
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
