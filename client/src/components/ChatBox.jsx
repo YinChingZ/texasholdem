@@ -27,7 +27,7 @@ const ChatBox = ({ roomId }) => {
             setNewMessage('');
         }
     };    return (
-        <div style={{ 
+        <div className="chat-box" style={{ 
             width: '100%', 
             border: '2px solid #007bff', 
             padding: '15px', 
@@ -80,7 +80,7 @@ const ChatBox = ({ roomId }) => {
                         <span style={{ marginLeft: '4px' }}>{msg.message}</span>
                     </div>
                 ))}
-            </div>            <form onSubmit={handleSendMessage} style={{ 
+            </div>            <form onSubmit={handleSendMessage} className="chat-input-container" style={{ 
                 display: 'flex', 
                 gap: '12px',
                 alignItems: 'center',

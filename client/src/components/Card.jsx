@@ -34,9 +34,9 @@ const Card = ({ suit, rank, isCommunityCard = false, isPlayerCard = false }) => 
     };
 
     return (
-        <div style={cardStyle}>
-            <span>{rank}{suitMap[suit]}</span>
-            <span style={{ alignSelf: 'flex-end', transform: 'rotate(180deg)' }}>{rank}{suitMap[suit]}</span>
+        <div className="card" style={cardStyle}>
+            <span className="card-rank">{rank}<span className="card-suit">{suitMap[suit]}</span></span>
+            <span className="card-rank" style={{ alignSelf: 'flex-end', transform: 'rotate(180deg)' }}>{rank}<span className="card-suit">{suitMap[suit]}</span></span>
         </div>
     );
 };

@@ -566,8 +566,7 @@
     .hand-result-modal.compact {
         max-width: 95vw;
         padding: 15px;
-    }
-    
+    }    
     .result-top-section, .result-middle-section {
         flex-direction: column;
     }
@@ -578,5 +577,119 @@
     
     .players-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* 增强移动端适配 */
+@media (max-width: 768px) {
+    .hand-result-overlay {
+        padding: 10px;
+    }
+
+    .hand-result-modal {
+        min-width: auto;
+        max-width: 95vw;
+        max-height: 90vh;
+        padding: 20px 15px;
+        margin: 0 auto;
+    }
+
+    .hand-result-modal h2 {
+        font-size: 20px;
+        margin-bottom: 15px;
+    }
+
+    .hand-result-modal h3 {
+        font-size: 16px;
+        margin: 12px 0 8px 0;
+    }
+
+    .result-top-section {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+
+    .result-middle-section {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+
+    .community-cards, .winners {
+        margin: 10px 0;
+    }
+
+    .cards-display {
+        gap: 5px;
+        justify-content: center;
+    }
+
+    .winner.compact {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+
+    .amount {
+        font-size: 12px;
+    }
+
+    .winner-hand-desc {
+        font-size: 11px;
+    }
+
+    .hand-comparison {
+        padding: 10px;
+    }
+
+    .hand-comparison h4 {
+        font-size: 14px;
+    }
+
+    .player-hand {
+        padding: 8px;
+        margin: 5px 0;
+    }
+
+    .player-hand-header {
+        font-size: 12px;
+    }
+
+    .close-button {
+        padding: 10px 20px;
+        font-size: 14px;
+        margin-top: 15px;
+    }
+
+    .next-hand-button {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hand-result-modal {
+        max-width: 98vw;
+        padding: 15px 10px;
+    }
+
+    .hand-result-modal h2 {
+        font-size: 18px;
+    }
+
+    .hand-result-modal h3 {
+        font-size: 14px;
+    }
+
+    .cards-display {
+        gap: 3px;
+    }
+
+    .winner.compact {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+
+    .close-button, .next-hand-button {
+        width: 100%;
+        margin: 5px 0;
     }
 }

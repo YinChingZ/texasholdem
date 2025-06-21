@@ -166,15 +166,14 @@ const GameTable = () => {
 
     // 3. User is in a room, and game is in WAITING state (Lobby)
     if (gameState && gameState.gameState === 'WAITING') {
-        console.log('GameTable - WAITING state, players:', gameState.players);        return (
-            <div style={{ 
+        console.log('GameTable - WAITING state, players:', gameState.players);        return (            <div className="lobby-container" style={{ 
                 display: 'flex', 
                 height: 'calc(100vh - 2rem)', 
                 padding: '0',
                 boxSizing: 'border-box',
                 gap: '20px'
             }}>
-                <div style={{ 
+                <div className="lobby-main" style={{ 
                     flex: '1', 
                     minWidth: '800px',
                     overflowY: 'auto',
@@ -184,7 +183,7 @@ const GameTable = () => {
                     border: '1px solid #dee2e6',
                     textAlign: 'center'
                 }}>                    {/* 房间标题和复制功能 */}
-                    <div style={{ 
+                    <div className="lobby-title-container" style={{ 
                         marginBottom: '30px',
                         display: 'flex',
                         alignItems: 'center',
@@ -192,7 +191,7 @@ const GameTable = () => {
                         gap: '15px',
                         flexWrap: 'wrap'
                     }}>
-                        <h2 style={{ 
+                        <h2 className="room-title" style={{ 
                             margin: '0', 
                             fontSize: 'clamp(20px, 5vw, 28px)',
                             color: '#495057',
@@ -205,8 +204,8 @@ const GameTable = () => {
                             alignItems: 'center',
                             flexWrap: 'wrap',
                             justifyContent: 'center'
-                        }}>
-                            <button 
+                        }}>                            <button 
+                                className="copy-room-button"
                                 onClick={handleCopyRoomId}                                style={{
                                     padding: '10px 20px',
                                     fontSize: '14px',
@@ -316,8 +315,8 @@ const GameTable = () => {
                                     {p.nickname} (<AnimatedNumber value={p.chips} className="chips-gain" enablePulse={true} pulseColor="#28a745" /> 筹码)
                                 </li>
                             ))}
-                        </ul>
-                          <button 
+                        </ul>                          <button 
+                            className="start-game-button"
                             onClick={handleStartGame} 
                             disabled={!gameState.players || gameState.players.length < 2 || !isRoomCreator}
                             style={{
@@ -354,9 +353,8 @@ const GameTable = () => {
                             </p>
                         )}
                     </div>
-                </div>
-                
-                <div style={{ 
+                </div>                
+                <div className="chat-area" style={{ 
                     flexShrink: 0,
                     width: '280px',
                     display: 'flex',
@@ -372,7 +370,7 @@ const GameTable = () => {
     }
     
     const me = gameState.players.find(p => p.id === socket.id);    return (
-        <div style={{ 
+        <div className="game-main-container" style={{ 
             display: 'flex', 
             height: '100vh', 
             padding: '10px',
@@ -381,7 +379,7 @@ const GameTable = () => {
             maxWidth: '100vw',
             overflow: 'hidden'
         }}>
-            <div style={{ 
+            <div className="game-area" style={{ 
                 flex: '1', 
                 minWidth: '600px',
                 maxWidth: 'calc(100vw - 320px)',
@@ -391,14 +389,13 @@ const GameTable = () => {
                 borderRadius: '10px',
                 border: '1px solid #dee2e6'
             }}>
-                <h2 style={{ 
+                <h2 className="room-title" style={{ 
                     margin: '0 0 20px 0', 
                     fontSize: '24px', 
                     textAlign: 'center',
                     color: '#495057'
-                }}>房间: {room.id}</h2>
-                  {/* 玩家信息区域 */}
-                <div style={{ 
+                }}>房间: {room.id}</h2>                {/* 玩家信息区域 */}
+                <div className="players-container" style={{ 
                     display: 'flex', 
                     justifyContent: 'space-around', 
                     flexWrap: 'wrap', 
@@ -426,9 +423,8 @@ const GameTable = () => {
                         gamePhase={(gameState.gameState || gameState.phase || 'WAITING').toLowerCase()}
                     />
                 </div>
-                
-                {/* 奖池和玩家手牌区域 - 同一水平线 */}
-                <div style={{ 
+                  {/* 奖池和玩家手牌区域 - 同一水平线 */}
+                <div className="center-area" style={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center',
@@ -445,13 +441,12 @@ const GameTable = () => {
                     </div>
                     
                     {/* 玩家手牌区域 */}
-                    <div style={{ 
+                    <div className="private-cards-area" style={{ 
                         flex: '1', 
                         textAlign: 'center',
                         marginLeft: '40px',
                         marginRight: '40px'
-                    }}>
-                        <h4 style={{ 
+                    }}>                        <h4 className="private-cards-title" style={{ 
                             margin: '0 0 15px 0', 
                             fontSize: '18px',
                             color: '#495057'
@@ -465,9 +460,8 @@ const GameTable = () => {
                                 <Card key={index} suit={card.suit} rank={card.rank} />
                             ))}
                         </div>
-                    </div>
-                      {/* 右侧玩家状态信息 */}
-                    <div style={{ flex: '0 0 auto', width: '120px' }}>
+                    </div>                      {/* 右侧玩家状态信息 */}
+                    <div className="player-status-info" style={{ flex: '0 0 auto', width: '120px' }}>
                         <div style={{ 
                             fontSize: '13px', 
                             color: '#495057',
@@ -476,7 +470,7 @@ const GameTable = () => {
                             backgroundColor: '#f8f9fa',
                             borderRadius: '8px',
                             border: '1px solid #dee2e6'
-                        }}>                            <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>我的状态</div>                            <div style={{ marginBottom: '3px' }}>
+                        }}>                            <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>我的状态</div><div style={{ marginBottom: '3px' }}>
                                 筹码: <AnimatedNumber value={me?.chips || 0} className="chips-gain" enablePulse={true} pulseColor="#28a745" />
                             </div>
                             <div>
@@ -485,17 +479,15 @@ const GameTable = () => {
                         </div>
                     </div>
                 </div>
-                
-                {/* 操作区域 */}
-                <div style={{ 
+                  {/* 操作区域 */}
+                <div className="action-area" style={{ 
                     display: 'flex', 
                     justifyContent: 'center',
                     marginBottom: '20px'
                 }}>
                     {me && <ActionBar roomId={room.id} player={me} gameState={gameState} />}
                 </div>
-            </div>
-              {/* 聊天区域 */}            <div style={{ 
+            </div>              {/* 聊天区域 */}            <div className="chat-area" style={{ 
                 flexShrink: 0,
                 width: '280px',
                 maxWidth: '280px',

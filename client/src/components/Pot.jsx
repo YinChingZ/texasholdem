@@ -18,8 +18,7 @@ const Pot = ({ amount, sidePots = [] }) => {
             }
             setPreviousAmount(currentAmount);
         }
-    }, [amount, previousAmount]);
-    const style = {
+    }, [amount, previousAmount]);    const style = {
         border: '3px solid #ffc107',
         borderRadius: '50%',
         width: '130px',
@@ -49,12 +48,10 @@ const Pot = ({ amount, sidePots = [] }) => {
         opacity: 0.6
     };
 
-    const totalPot = (amount || 0) + sidePots.reduce((sum, pot) => sum + pot.amount, 0);
-
-    return (
-        <div style={style}>            <div style={pulseStyle}></div>
+    const totalPot = (amount || 0) + sidePots.reduce((sum, pot) => sum + pot.amount, 0);    return (
+        <div className="pot-container" style={style}>            <div style={pulseStyle}></div>
             <div style={{ fontSize: '12px', marginBottom: '4px', opacity: 0.8 }}>总奖池</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>                <AnimatedNumber 
+            <div className="pot-amount" style={{ fontSize: '18px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>                <AnimatedNumber 
                     value={amount || 0} 
                     prefix="$" 
                     className="pot-increase"

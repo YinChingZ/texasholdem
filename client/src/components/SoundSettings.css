@@ -196,6 +196,43 @@
 }
 
 /* 响应式适配 */
+@media (max-width: 768px) {
+    .sound-settings-modal {
+        width: 95%;
+        max-width: 350px;
+    }
+    
+    .sound-settings-header {
+        padding: 18px;
+    }
+    
+    .sound-settings-content {
+        padding: 20px;
+    }
+    
+    .sound-settings-header h3 {
+        font-size: 17px;
+    }
+    
+    .setting-group {
+        margin-bottom: 20px;
+    }
+    
+    .toggle-buttons button {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+    
+    .volume-slider {
+        margin: 8px 0;
+    }
+    
+    .test-button {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+}
+
 @media (max-width: 480px) {
     .sound-settings-modal {
         width: 95%;
@@ -207,10 +244,32 @@
     }
     
     .sound-settings-content {
-        padding: 20px;
+        padding: 15px;
     }
     
     .sound-settings-header h3 {
         font-size: 16px;
+    }
+    
+    .setting-group {
+        margin-bottom: 18px;
+    }
+    
+    .toggle-buttons button {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .test-button {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .sound-settings-footer {
+        padding: 12px 15px;
+    }
+    
+    .setting-tip {
+        font-size: 11px;
     }
 }
