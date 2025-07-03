@@ -15,29 +15,101 @@ const socket = io(API_URL);
 export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(socket.connected);
     const [gameState, setGameState] = useState(null);
-    const [privateCards, setPrivateCards] = useState([]);    const [room, setRoom] = useState(null);
+    const [privateCards, setPrivateCards] = useState([]);
+    const [room, setRoom] = useState(null);
     const [error, setError] = useState(null);
     const [handResult, setHandResult] = useState(null);
     const [isRoomCreator, setIsRoomCreator] = useState(false);  // 新增：追踪是否为房间创建者
     const [roomSettings, setRoomSettings] = useState({ showAllHands: true });  // 新增：房间设置状态
+    const [connectionStatus, setConnectionStatus] = useState('connected'); // 新增：连接状态
+    const [isReconnecting, setIsReconnecting] = useState(false); // 新增：重连状态
+
+    // 新增：尝试重连的函数
+    const attemptReconnect = () => {
+        const savedRoom = localStorage.getItem('texasholdem_room');
+        const savedNickname = localStorage.getItem('texasholdem_nickname');
+        
+        if (savedRoom && savedNickname) {
+            console.log(`Attempting to reconnect to room ${savedRoom} as ${savedNickname}`);
+            setIsReconnecting(true);
+            socket.emit('attemptReconnect', { 
+                roomId: savedRoom, 
+                nickname: savedNickname 
+            });
+        }
+    };
 
     useEffect(() => {
         socket.on('connect', () => {
             console.log('Connected to server');
             setIsConnected(true);
+            setConnectionStatus('connected');
+            
+            // 尝试重连到之前的房间
+            attemptReconnect();
         });
 
         socket.on('disconnect', () => {
             console.log('Disconnected from server');
             setIsConnected(false);
+            setConnectionStatus('disconnected');
+        });
+
+        // 新增：重连成功处理
+        socket.on('reconnectSuccess', ({ roomId, isCreator, message }) => {
+            console.log('Reconnect successful:', { roomId, isCreator, message });
+            setRoom({ id: roomId });
+            setIsRoomCreator(isCreator);
+            setIsReconnecting(false);
+            setConnectionStatus('connected');
+            setError(null);
+            
+            // 显示重连成功消息
+            alert(message || '重新连接成功！');
+        });
+
+        // 新增：重连失败处理
+        socket.on('reconnectFailed', ({ message }) => {
+            console.log('Reconnect failed:', message);
+            setIsReconnecting(false);
+            
+            // 清理本地存储
+            localStorage.removeItem('texasholdem_room');
+            localStorage.removeItem('texasholdem_nickname');
+            
+            // 重置状态
+            setRoom(null);
+            setGameState(null);
+            setPrivateCards([]);
+            setIsRoomCreator(false);
+            setHandResult(null);
+        });
+
+        // 新增：处理玩家临时离线
+        socket.on('playerDisconnected', ({ playerId, nickname, temporary }) => {
+            console.log(`Player ${nickname} temporarily disconnected`);
+            setError(`玩家 ${nickname} 暂时离线，等待重连中...`);
+            
+            // 3秒后清除错误消息
+            setTimeout(() => {
+                setError(null);
+            }, 3000);
         });        socket.on('roomCreated', ({ roomId, isCreator }) => {
             console.log('Room created:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
-        });        socket.on('roomJoined', ({ roomId, isCreator }) => {
+            
+            // 保存房间信息到本地存储
+            localStorage.setItem('texasholdem_room', roomId);
+        });
+
+        socket.on('roomJoined', ({ roomId, isCreator }) => {
             console.log('Room joined:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
+            
+            // 保存房间信息到本地存储
+            localStorage.setItem('texasholdem_room', roomId);
         });        socket.on('roomSettingsUpdate', ({ settings }) => {
             setRoomSettings(settings);
         });        socket.on('gameStateUpdate', (newGameState) => {
@@ -101,6 +173,9 @@ export const SocketProvider = ({ children }) => {
         return () => {
             socket.off('connect');
             socket.off('disconnect');
+            socket.off('reconnectSuccess');
+            socket.off('reconnectFailed');
+            socket.off('playerDisconnected');
             socket.off('roomCreated');
             socket.off('roomJoined');
             socket.off('roomSettingsUpdate');
@@ -123,7 +198,10 @@ export const SocketProvider = ({ children }) => {
         handResult,
         clearHandResult,
         isRoomCreator,  // 导出创建者状态
-        roomSettings    // 导出房间设置状态
+        roomSettings,   // 导出房间设置状态
+        connectionStatus, // 导出连接状态
+        isReconnecting,   // 导出重连状态
+        attemptReconnect  // 导出重连函数
     };
 
     return (

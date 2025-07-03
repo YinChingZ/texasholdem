@@ -934,6 +934,32 @@ class Game {
         this.activePlayers = this.activePlayers.filter(p => p.id !== playerId);
     }
 
+    // 新增：更新玩家ID（用于重连）
+    updatePlayerId(oldPlayerId, newPlayerId) {
+        // 更新players数组中的玩家ID
+        const player = this.players.find(p => p.id === oldPlayerId);
+        if (player) {
+            player.id = newPlayerId;
+        }
+        
+        // 更新activePlayers数组中的玩家ID
+        const activePlayer = this.activePlayers.find(p => p.id === oldPlayerId);
+        if (activePlayer) {
+            activePlayer.id = newPlayerId;
+        }
+        
+        // 如果当前轮到该玩家，更新currentPlayerTurn
+        if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
+            const currentPlayer = this.activePlayers[this.currentPlayerTurn];
+            if (currentPlayer && currentPlayer.id === newPlayerId) {
+                // 位置不变，只是ID更新了
+                console.log(`Updated current player turn for reconnected player: ${newPlayerId}`);
+            }
+        }
+        
+        console.log(`Updated player ID from ${oldPlayerId} to ${newPlayerId}`);
+    }
+
     // 从7张牌中找到最佳的5张牌组合
     _findBestFiveCards(allCards) {
         // 如果只有5张或更少的牌，直接返回

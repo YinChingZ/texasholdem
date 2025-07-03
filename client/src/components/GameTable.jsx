@@ -15,11 +15,24 @@ import { useGlobalMessages } from '../hooks/useGlobalMessages';
 import './Welcome.css';
 
 const GameTable = () => {
-    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator, roomSettings } = useSocket();const [nickname, setNickname] = React.useState('');
-    const [roomIdInput, setRoomIdInput] = React.useState('');    const [showSoundSettings, setShowSoundSettings] = React.useState(false);
+    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator, roomSettings, connectionStatus, isReconnecting } = useSocket();
+
+    const [nickname, setNickname] = React.useState('');
+    const [roomIdInput, setRoomIdInput] = React.useState('');
+    const [showSoundSettings, setShowSoundSettings] = React.useState(false);
     const [previousGameState, setPreviousGameState] = React.useState(null);
     const [copySuccess, setCopySuccess] = React.useState(false);
-    const [showAllHands, setShowAllHands] = React.useState(true); // 本地状态跟踪    // 使用游戏音效Hook
+    const [showAllHands, setShowAllHands] = React.useState(true); // 本地状态跟踪
+
+    // 从本地存储加载昵称
+    React.useEffect(() => {
+        const savedNickname = localStorage.getItem('texasholdem_nickname');
+        if (savedNickname) {
+            setNickname(savedNickname);
+        }
+    }, []);
+
+    // 使用游戏音效Hook
     useGameSounds(gameState, previousGameState);
     
     // 使用全局消息Hook
@@ -60,12 +73,16 @@ const GameTable = () => {
 
     const handleCreateRoom = () => {
         if (nickname) {
+            // 保存昵称到本地存储
+            localStorage.setItem('texasholdem_nickname', nickname);
             socket.emit('createRoom', { nickname });
         }
     };
 
     const handleJoinRoom = () => {
         if (nickname && roomIdInput) {
+            // 保存昵称到本地存储
+            localStorage.setItem('texasholdem_nickname', nickname);
             socket.emit('joinRoom', { roomId: roomIdInput, nickname });
         }
     };    const handleStartGame = () => {
@@ -196,6 +213,62 @@ const GameTable = () => {
                         fontSize: '14px',
                         marginTop: '10px'
                     }}>正在加载游戏状态...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. Display reconnection status
+    if (isReconnecting) {
+        return (
+            <div className="welcome-container">
+                <div className="welcome-card" style={{ maxWidth: '400px' }}>
+                    <div className="loading-spinner"></div>
+                    <h2 style={{
+                        color: '#2c3e50',
+                        marginBottom: '10px',
+                        fontSize: '24px'
+                    }}>正在重连...</h2>
+                    <p style={{
+                        color: '#7f8c8d',
+                        fontSize: '16px',
+                        margin: '0'
+                    }}>尝试恢复您的游戏状态</p>
+                    <p style={{
+                        color: '#95a5a6',
+                        fontSize: '14px',
+                        marginTop: '10px'
+                    }}>请稍候片刻...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // 4. Display connection status
+    if (connectionStatus === 'disconnected') {
+        return (
+            <div className="welcome-container">
+                <div className="welcome-card" style={{ maxWidth: '400px' }}>
+                    <div style={{
+                        color: '#e74c3c',
+                        fontSize: '48px',
+                        marginBottom: '20px'
+                    }}>⚠️</div>
+                    <h2 style={{
+                        color: '#e74c3c',
+                        marginBottom: '10px',
+                        fontSize: '24px'
+                    }}>连接断开</h2>
+                    <p style={{
+                        color: '#7f8c8d',
+                        fontSize: '16px',
+                        margin: '0'
+                    }}>与服务器的连接已断开</p>
+                    <p style={{
+                        color: '#95a5a6',
+                        fontSize: '14px',
+                        marginTop: '10px'
+                    }}>正在尝试重新连接...</p>
                 </div>
             </div>
         );
@@ -473,6 +546,35 @@ const GameTable = () => {
             maxWidth: '100vw',
             overflow: 'hidden'
         }}>
+            {/* 连接状态指示器 */}
+            {connectionStatus !== 'connected' && (
+                <div style={{
+                    position: 'fixed',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    backgroundColor: connectionStatus === 'disconnected' ? '#dc3545' : '#ffc107',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        animation: 'pulse 2s infinite'
+                    }}></div>
+                    {connectionStatus === 'disconnected' ? '连接断开' : '连接中...'}
+                </div>
+            )}
+            
             <div className="game-area" style={{ 
                 flex: '1', 
                 minWidth: '600px',

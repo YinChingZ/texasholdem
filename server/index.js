@@ -35,10 +35,28 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+// 新增：用于存储断开连接的玩家信息，支持重连
+const disconnectedPlayers = new Map(); // playerId -> { roomId, nickname, lastSeen, socketId }
 
 const generateRoomId = () => {
     return Math.random().toString(36).substr(2, 6);
 }
+
+// 新增：清理过期的断开连接记录
+const cleanupDisconnectedPlayers = () => {
+    const now = Date.now();
+    const RECONNECT_TIMEOUT = 30 * 1000; // 30秒重连超时
+    
+    for (const [playerId, info] of disconnectedPlayers.entries()) {
+        if (now - info.lastSeen > RECONNECT_TIMEOUT) {
+            disconnectedPlayers.delete(playerId);
+            console.log(`Cleaned up expired disconnection record for player: ${playerId}`);
+        }
+    }
+};
+
+// 定期清理过期记录
+setInterval(cleanupDisconnectedPlayers, 60000); // 每分钟清理一次
 
 // 确保房间设置的辅助函数
 const ensureRoomSettings = (room) => {
@@ -84,6 +102,75 @@ const broadcastGameState = (roomId) => {
 };
 
 io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
+  
+  // 新增：检查重连恢复
+  socket.on('attemptReconnect', ({ roomId, nickname }) => {
+    console.log(`Attempting reconnect for ${nickname} to room ${roomId}`);
+    
+    // 查找断开连接的玩家记录
+    let reconnectInfo = null;
+    for (const [playerId, info] of disconnectedPlayers.entries()) {
+      if (info.roomId === roomId && info.nickname === nickname) {
+        reconnectInfo = { playerId, ...info };
+        break;
+      }
+    }
+    
+    if (reconnectInfo) {
+      const room = rooms.get(roomId);
+      if (room && room.players[reconnectInfo.playerId]) {
+        // 恢复连接
+        const player = room.players[reconnectInfo.playerId];
+        
+        // 更新socket ID
+        delete room.players[reconnectInfo.playerId];
+        room.players[socket.id] = player;
+        player.id = socket.id;
+        
+        // 更新游戏中的玩家引用
+        room.game.updatePlayerId(reconnectInfo.playerId, socket.id);
+        
+        // 如果是房间创建者，更新创建者ID
+        if (room.creator === reconnectInfo.playerId) {
+          room.creator = socket.id;
+        }
+        
+        // 加入房间
+        socket.join(roomId);
+        
+        // 清理断开连接记录
+        disconnectedPlayers.delete(reconnectInfo.playerId);
+        
+        console.log(`Player ${nickname} successfully reconnected to room ${roomId}`);
+        
+        // 通知重连成功
+        socket.emit('reconnectSuccess', { 
+          roomId, 
+          isCreator: room.creator === socket.id,
+          message: '重新连接成功！'
+        });
+        
+        // 如果游戏进行中，发送私人手牌
+        if (room.game.gameState !== 'WAITING' && room.game.gameState !== 'SHOWDOWN_COMPLETE') {
+          const playerInGame = room.game.players.find(p => p.id === socket.id);
+          if (playerInGame && playerInGame.hand) {
+            socket.emit('dealPrivateCards', { hand: playerInGame.hand });
+          }
+        }
+        
+        // 广播游戏状态
+        broadcastGameState(roomId);
+        return;
+      }
+    }
+    
+    // 重连失败
+    socket.emit('reconnectFailed', { 
+      message: '重连失败，请重新加入房间'
+    });
+  });
+
   socket.on('createRoom', ({ nickname }) => {
     if (!nickname || nickname.trim() === '') {
         return socket.emit('error', { message: '昵称不能为空' });
@@ -323,37 +410,74 @@ io.on('connection', (socket) => {
       }
   });
   socket.on('disconnect', () => {
-    console.log(`user disconnected: ${socket.id}`);
+    console.log(`User disconnected: ${socket.id}`);
+    
     for (const [roomId, room] of rooms.entries()) {
         if (room.players[socket.id]) {
+            const player = room.players[socket.id];
+            
+            // 将玩家信息存储到断开连接记录中，支持重连
+            disconnectedPlayers.set(socket.id, {
+                roomId,
+                nickname: player.nickname,
+                lastSeen: Date.now(),
+                socketId: socket.id
+            });
+            
+            console.log(`Player ${player.nickname} disconnected from room ${roomId}, stored for potential reconnection`);
+            
             // 检查是否为房间创建者
             const wasCreator = room.creator === socket.id;
             
-            // 使用Game类的removePlayer方法
-            room.game.removePlayer(socket.id);
-            delete room.players[socket.id];
-
-            if (Object.keys(room.players).length === 0) {
-                rooms.delete(roomId);
-                console.log(`Room ${roomId} is empty and has been deleted.`);
-            } else if (wasCreator) {
-                // 如果创建者离开，将房主权限转给第一个剩余玩家
-                const remainingPlayerIds = Object.keys(room.players);
-                if (remainingPlayerIds.length > 0) {
-                    room.creator = remainingPlayerIds[0];
-                    console.log(`Room ${roomId} creator left, new creator: ${room.creator}`);
-                    // 通知新房主
-                    io.to(room.creator).emit('becameCreator', { roomId });
-                    // 广播更新的游戏状态（包含新的creator信息）
-                    broadcastGameState(roomId);
+            // 暂时不从游戏中移除玩家，给予重连机会
+            // 30秒后如果没有重连，则移除
+            setTimeout(() => {
+                if (disconnectedPlayers.has(socket.id)) {
+                    // 玩家没有重连，正式移除
+                    console.log(`Player ${player.nickname} did not reconnect, removing from game`);
+                    
+                    const currentRoom = rooms.get(roomId);
+                    if (currentRoom && currentRoom.players[socket.id]) {
+                        // 使用Game类的removePlayer方法
+                        currentRoom.game.removePlayer(socket.id);
+                        delete currentRoom.players[socket.id];
+                        
+                        if (Object.keys(currentRoom.players).length === 0) {
+                            rooms.delete(roomId);
+                            console.log(`Room ${roomId} is empty and has been deleted.`);
+                        } else if (wasCreator) {
+                            // 如果创建者离开，将房主权限转给第一个剩余玩家
+                            const remainingPlayerIds = Object.keys(currentRoom.players);
+                            if (remainingPlayerIds.length > 0) {
+                                currentRoom.creator = remainingPlayerIds[0];
+                                console.log(`Room ${roomId} creator left, new creator: ${currentRoom.creator}`);
+                                // 通知新房主
+                                io.to(currentRoom.creator).emit('becameCreator', { roomId });
+                                // 广播更新的游戏状态（包含新的creator信息）
+                                broadcastGameState(roomId);
+                            }
+                        } else {
+                            io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
+                            broadcastGameState(roomId);
+                        }
+                    }
+                    
+                    // 清理断开连接记录
+                    disconnectedPlayers.delete(socket.id);
                 }
-            } else {
-                io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
-                broadcastGameState(roomId);
-                console.log(`${socket.id} left room: ${roomId}`);
-            }
+            }, 30000); // 30秒重连超时
+            
+            // 立即通知其他玩家该玩家暂时离线
+            io.to(roomId).emit('playerDisconnected', { 
+                roomId, 
+                playerId: socket.id,
+                nickname: player.nickname,
+                temporary: true
+            });
+            
             break;
-        }    }
+        }
+    }
   });
     // 更新房间设置的事件
   socket.on('updateRoomSettings', ({ roomId, settings }) => {
