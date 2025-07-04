@@ -310,6 +310,13 @@ class Game {
             }))
         });
     }    _advanceTurn() {
+        console.log('_advanceTurn called');
+        console.log('Current state:', {
+            currentPlayerTurn: this.currentPlayerTurn,
+            activePlayersLength: this.activePlayers.length,
+            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname, status: p.status }))
+        });
+        
         // 检查是否只剩一个未弃牌玩家
         const activePlayers = this.activePlayers.filter(p => p.status !== 'folded');
         if (activePlayers.length === 1) {
@@ -367,16 +374,40 @@ class Game {
             return this._endBettingRound();
         }
         
+        // 验证当前 currentPlayerTurn 的有效性
+        if (this.currentPlayerTurn < 0 || this.currentPlayerTurn >= this.activePlayers.length) {
+            console.warn(`Invalid currentPlayerTurn: ${this.currentPlayerTurn}, resetting to first valid player`);
+            this.currentPlayerTurn = this.activePlayers.findIndex(p => p.status === 'in-game');
+            if (this.currentPlayerTurn === -1) {
+                console.error('No valid players found in activePlayers');
+                return null;
+            }
+        }
+        
         // 查找下一个可行动玩家
         let nextPlayer;
         let nextIndex = this.currentPlayerTurn;
+        let attempts = 0;
+        const maxAttempts = this.activePlayers.length; // 防止无限循环
         
         do {
             nextIndex = (nextIndex + 1) % this.activePlayers.length;
             nextPlayer = this.activePlayers[nextIndex];
-        } while (nextPlayer.status !== 'in-game');
+            attempts++;
+            
+            if (attempts >= maxAttempts) {
+                console.error('Could not find next valid player after full cycle');
+                break;
+            }
+        } while (nextPlayer && nextPlayer.status !== 'in-game' && attempts < maxAttempts);
+        
+        if (!nextPlayer || nextPlayer.status !== 'in-game') {
+            console.error('No valid next player found');
+            return null;
+        }
         
         this.currentPlayerTurn = nextIndex;
+        console.log(`Advanced turn to player ${nextPlayer.id} (${nextPlayer.nickname}) at index ${nextIndex}`);
         return null;
     }    _isBettingRoundOver() {
         // 获取当前有行动能力的玩家（未弃牌且未全押）
@@ -899,7 +930,21 @@ class Game {
         
         console.log(`Game._getGameState() - gameState: ${this.gameState}`);
         console.log(`Total players: ${this.players.length}, Active players: ${this.activePlayers.length}, Showing: ${playersToShow.length}`);
-        console.log('Players to show:', playersToShow.map(p => ({ id: p.id, chips: p.chips, status: p.status })));
+        console.log('Players to show:', playersToShow.map(p => ({ id: p.id, nickname: p.nickname, chips: p.chips, status: p.status })));
+        
+        // 验证 currentPlayerTurn 的有效性
+        let currentPlayerTurnId = null;
+        if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
+            const currentPlayer = this.activePlayers[this.currentPlayerTurn];
+            if (currentPlayer) {
+                currentPlayerTurnId = currentPlayer.id;
+                console.log(`Current player turn: index ${this.currentPlayerTurn}, player ${currentPlayer.id} (${currentPlayer.nickname})`);
+            } else {
+                console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} points to undefined player`);
+            }
+        } else {
+            console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} is out of bounds for activePlayers array (length: ${this.activePlayers.length})`);
+        }
         
         return {
             gameState: this.gameState,
@@ -912,8 +957,7 @@ class Game {
             dealerPosition: this.dealerPosition,
             smallBlindPosition: this.smallBlindPosition,
             bigBlindPosition: this.bigBlindPosition,
-            currentPlayerTurn: this.currentPlayerTurn >= 0 && this.activePlayers.length > 0 ? 
-                this.activePlayers[this.currentPlayerTurn]?.id : null,
+            currentPlayerTurn: currentPlayerTurnId,
             players: playersToShow.map(p => ({
                 id: p.id,
                 nickname: p.nickname,
@@ -930,34 +974,122 @@ class Game {
             this.players.push(player);
         }
     }    removePlayer(playerId) {
+        console.log(`Removing player ${playerId}`);
+        console.log('Before removal:', {
+            currentPlayerTurn: this.currentPlayerTurn,
+            playersLength: this.players.length,
+            activePlayersLength: this.activePlayers.length,
+            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname }))
+        });
+        
+        // 检查要移除的玩家是否是当前轮到的玩家
+        let wasCurrentPlayer = false;
+        let currentPlayerIndex = -1;
+        if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
+            const currentPlayer = this.activePlayers[this.currentPlayerTurn];
+            if (currentPlayer && currentPlayer.id === playerId) {
+                wasCurrentPlayer = true;
+                currentPlayerIndex = this.currentPlayerTurn;
+            }
+        }
+        
+        // 移除玩家
         this.players = this.players.filter(p => p.id !== playerId);
         this.activePlayers = this.activePlayers.filter(p => p.id !== playerId);
+        
+        // 修正 currentPlayerTurn 索引
+        if (wasCurrentPlayer) {
+            // 如果移除的是当前玩家，需要找到下一个可行动的玩家
+            if (this.activePlayers.length === 0) {
+                this.currentPlayerTurn = -1;
+            } else {
+                // 如果移除的玩家在当前索引位置，保持索引不变（指向下一个玩家）
+                // 但需要确保索引不会越界
+                if (currentPlayerIndex >= this.activePlayers.length) {
+                    this.currentPlayerTurn = 0; // 回到开头
+                } else {
+                    this.currentPlayerTurn = currentPlayerIndex;
+                }
+                
+                // 确保指向的是可行动的玩家
+                let attempts = 0;
+                while (attempts < this.activePlayers.length && 
+                       this.activePlayers[this.currentPlayerTurn]?.status !== 'in-game') {
+                    this.currentPlayerTurn = (this.currentPlayerTurn + 1) % this.activePlayers.length;
+                    attempts++;
+                }
+                
+                if (attempts >= this.activePlayers.length) {
+                    console.warn('No valid players found after player removal');
+                    this.currentPlayerTurn = -1;
+                }
+            }
+        } else if (this.currentPlayerTurn >= this.activePlayers.length) {
+            // 如果当前索引越界了，重置到有效范围
+            this.currentPlayerTurn = this.activePlayers.length > 0 ? 0 : -1;
+        }
+        
+        console.log('After removal:', {
+            currentPlayerTurn: this.currentPlayerTurn,
+            playersLength: this.players.length,
+            activePlayersLength: this.activePlayers.length,
+            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })),
+            currentPlayer: this.currentPlayerTurn >= 0 ? this.activePlayers[this.currentPlayerTurn]?.id : null
+        });
     }
 
     // 新增：更新玩家ID（用于重连）
     updatePlayerId(oldPlayerId, newPlayerId) {
+        console.log(`Updating player ID from ${oldPlayerId} to ${newPlayerId}`);
+        console.log('Before update - currentPlayerTurn:', this.currentPlayerTurn);
+        console.log('Before update - activePlayers:', this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })));
+        
+        // 检查当前轮到的玩家是否是要更新的玩家
+        let wasCurrentPlayer = false;
+        if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
+            const currentPlayer = this.activePlayers[this.currentPlayerTurn];
+            if (currentPlayer && currentPlayer.id === oldPlayerId) {
+                wasCurrentPlayer = true;
+                console.log('The player being updated is currently the active player');
+            }
+        }
+        
         // 更新players数组中的玩家ID
         const player = this.players.find(p => p.id === oldPlayerId);
         if (player) {
             player.id = newPlayerId;
+            console.log(`Updated player in players array: ${player.nickname} -> ${newPlayerId}`);
         }
         
         // 更新activePlayers数组中的玩家ID
         const activePlayer = this.activePlayers.find(p => p.id === oldPlayerId);
         if (activePlayer) {
             activePlayer.id = newPlayerId;
+            console.log(`Updated player in activePlayers array: ${activePlayer.nickname} -> ${newPlayerId}`);
         }
         
-        // 如果当前轮到该玩家，更新currentPlayerTurn
-        if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
-            const currentPlayer = this.activePlayers[this.currentPlayerTurn];
-            if (currentPlayer && currentPlayer.id === newPlayerId) {
-                // 位置不变，只是ID更新了
-                console.log(`Updated current player turn for reconnected player: ${newPlayerId}`);
+        // 验证currentPlayerTurn索引的有效性
+        if (this.currentPlayerTurn >= 0) {
+            if (this.currentPlayerTurn >= this.activePlayers.length) {
+                console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} is out of bounds for activePlayers array (length: ${this.activePlayers.length})`);
+                // 重置到第一个可行动的玩家
+                this.currentPlayerTurn = this.activePlayers.findIndex(p => p.status === 'in-game');
+                if (this.currentPlayerTurn === -1) {
+                    this.currentPlayerTurn = 0; // 如果没有找到，默认为0
+                }
+                console.log(`Reset currentPlayerTurn to: ${this.currentPlayerTurn}`);
             }
         }
         
-        console.log(`Updated player ID from ${oldPlayerId} to ${newPlayerId}`);
+        console.log('After update - currentPlayerTurn:', this.currentPlayerTurn);
+        console.log('After update - activePlayers:', this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })));
+        console.log('Current player after update:', this.activePlayers[this.currentPlayerTurn]?.id);
+        
+        if (wasCurrentPlayer) {
+            console.log(`Successfully updated current player ID from ${oldPlayerId} to ${newPlayerId}`);
+        }
+        
+        console.log(`Player ID update completed from ${oldPlayerId} to ${newPlayerId}`);
     }
 
     // 从7张牌中找到最佳的5张牌组合
