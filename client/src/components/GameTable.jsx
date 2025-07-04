@@ -15,7 +15,7 @@ import { useGlobalMessages } from '../hooks/useGlobalMessages';
 import './Welcome.css';
 
 const GameTable = () => {
-    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator, roomSettings, connectionStatus, isReconnecting } = useSocket();
+    const { socket, gameState, privateCards, room, handResult, clearHandResult, isRoomCreator, roomSettings, connectionStatus, isReconnecting, leaveRoom } = useSocket();
 
     const [nickname, setNickname] = React.useState('');
     const [roomIdInput, setRoomIdInput] = React.useState('');
@@ -88,6 +88,14 @@ const GameTable = () => {
     };    const handleStartGame = () => {
         if (room) {
             socket.emit('startGame', { roomId: room.id });
+        }
+    };
+
+    // 新增：处理退出房间
+    const handleLeaveRoom = () => {
+        const confirmLeave = window.confirm('确定要退出房间吗？');
+        if (confirmLeave && room) {
+            leaveRoom();
         }
     };    const handleCopyRoomId = async () => {
         try {
@@ -314,9 +322,11 @@ const GameTable = () => {
                             alignItems: 'center',
                             flexWrap: 'wrap',
                             justifyContent: 'center'
-                        }}>                            <button 
+                        }}>
+                            <button 
                                 className="copy-room-button"
-                                onClick={handleCopyRoomId}                                style={{
+                                onClick={handleCopyRoomId}
+                                style={{
                                     padding: '10px 20px',
                                     fontSize: '14px',
                                     backgroundColor: copySuccess ? '#28a745' : '#007bff',
@@ -354,6 +364,42 @@ const GameTable = () => {
                                 ) : (
                                     <>📋 复制房间号</>
                                 )}
+                            </button>
+
+                            {/* 新增：退出房间按钮 */}
+                            <button 
+                                className="leave-room-button"
+                                onClick={handleLeaveRoom}
+                                style={{
+                                    padding: '10px 20px',
+                                    fontSize: '14px',
+                                    backgroundColor: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontWeight: '500',
+                                    minWidth: '120px',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#c82333';
+                                    e.target.style.transform = 'translateY(-1px)';
+                                    e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#dc3545';
+                                    e.target.style.transform = 'translateY(0)';
+                                    e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                                }}
+                                title="退出房间"
+                            >
+                                🚪 退出房间
                             </button>
                               {copySuccess && (
                                 <span style={{
@@ -717,6 +763,70 @@ const GameTable = () => {
                 height: '100%',
                 overflow: 'hidden'
             }}>
+                {/* 游戏控制面板 */}
+                <div style={{
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '10px',
+                    border: '1px solid #dee2e6',
+                    marginBottom: '10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                }}>
+                    <div style={{
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        color: '#495057',
+                        textAlign: 'center'
+                    }}>
+                        游戏控制
+                    </div>
+                    
+                    {/* 房间信息 */}
+                    <div style={{
+                        fontSize: '12px',
+                        color: '#6c757d',
+                        textAlign: 'center'
+                    }}>
+                        房间: {room.id}
+                    </div>
+                    
+                    {/* 退出房间按钮 */}
+                    <button 
+                        onClick={handleLeaveRoom}
+                        style={{
+                            padding: '8px 16px',
+                            fontSize: '12px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            fontWeight: '500',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#c82333';
+                            e.target.style.transform = 'translateY(-1px)';
+                            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = '#dc3545';
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        }}
+                        title="退出房间"
+                    >
+                        🚪 退出房间
+                    </button>
+                </div>
+                
                 {/* ChatBox容器，限制其最大高度 */}
                 <div style={{ 
                     flex: '1', 
@@ -724,7 +834,7 @@ const GameTable = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     minHeight: 0, // 重要：允许flex子元素缩小
-                    maxHeight: 'calc(100% - 60px)' // 为音效按钮留出空间
+                    maxHeight: 'calc(100% - 170px)' // 为游戏控制面板和音效按钮留出空间
                 }}>
                     <ChatBox roomId={room.id} />
                 </div>

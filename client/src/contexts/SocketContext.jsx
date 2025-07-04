@@ -23,9 +23,16 @@ export const SocketProvider = ({ children }) => {
     const [roomSettings, setRoomSettings] = useState({ showAllHands: true });  // 新增：房间设置状态
     const [connectionStatus, setConnectionStatus] = useState('connected'); // 新增：连接状态
     const [isReconnecting, setIsReconnecting] = useState(false); // 新增：重连状态
+    const [hasLeftRoom, setHasLeftRoom] = useState(false); // 新增：标记是否主动退出房间
 
     // 新增：尝试重连的函数
     const attemptReconnect = () => {
+        // 如果用户主动退出房间，不尝试重连
+        if (hasLeftRoom) {
+            console.log('User has left room intentionally, skipping reconnect');
+            return;
+        }
+        
         const savedRoom = localStorage.getItem('texasholdem_room');
         const savedNickname = localStorage.getItem('texasholdem_nickname');
         
@@ -63,6 +70,7 @@ export const SocketProvider = ({ children }) => {
             setIsReconnecting(false);
             setConnectionStatus('connected');
             setError(null);
+            setHasLeftRoom(false); // 重置退出标记
             
             // 显示重连成功消息
             alert(message || '重新连接成功！');
@@ -94,10 +102,36 @@ export const SocketProvider = ({ children }) => {
             setTimeout(() => {
                 setError(null);
             }, 3000);
+        });
+
+        // 新增：成功退出房间
+        socket.on('leftRoom', ({ roomId, message }) => {
+            console.log('Left room successfully:', { roomId, message });
+            
+            // 标记用户主动退出房间
+            setHasLeftRoom(true);
+            
+            // 清理本地存储
+            localStorage.removeItem('texasholdem_room');
+            localStorage.removeItem('texasholdem_nickname');
+            
+            // 重置所有状态
+            setRoom(null);
+            setGameState(null);
+            setPrivateCards([]);
+            setIsRoomCreator(false);
+            setHandResult(null);
+            setConnectionStatus('connected');
+            setIsReconnecting(false);
+            setError(null);
+            
+            // 显示成功消息
+            alert(message || '已成功退出房间');
         });        socket.on('roomCreated', ({ roomId, isCreator }) => {
             console.log('Room created:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
+            setHasLeftRoom(false); // 重置退出标记
             
             // 保存房间信息到本地存储
             localStorage.setItem('texasholdem_room', roomId);
@@ -107,6 +141,7 @@ export const SocketProvider = ({ children }) => {
             console.log('Room joined:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
+            setHasLeftRoom(false); // 重置退出标记
             
             // 保存房间信息到本地存储
             localStorage.setItem('texasholdem_room', roomId);
@@ -176,6 +211,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('reconnectSuccess');
             socket.off('reconnectFailed');
             socket.off('playerDisconnected');
+            socket.off('leftRoom');
             socket.off('roomCreated');
             socket.off('roomJoined');
             socket.off('roomSettingsUpdate');
@@ -188,7 +224,16 @@ export const SocketProvider = ({ children }) => {
         };
     }, []);    const clearHandResult = () => {
         setHandResult(null);
-    };    const value = {
+    };    // 新增：退出房间的函数
+    const leaveRoom = () => {
+        if (room && room.id) {
+            console.log(`Leaving room: ${room.id}`);
+            setHasLeftRoom(true); // 标记用户主动退出
+            socket.emit('leaveRoom', { roomId: room.id });
+        }
+    };
+
+    const value = {
         socket,
         isConnected,
         gameState,
@@ -201,7 +246,8 @@ export const SocketProvider = ({ children }) => {
         roomSettings,   // 导出房间设置状态
         connectionStatus, // 导出连接状态
         isReconnecting,   // 导出重连状态
-        attemptReconnect  // 导出重连函数
+        attemptReconnect, // 导出重连函数
+        leaveRoom       // 导出退出房间函数
     };
 
     return (

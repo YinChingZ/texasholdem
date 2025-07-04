@@ -8,12 +8,12 @@
 - **多人在线实时对战**: 基于 WebSocket 技术，支持多名玩家在同一房间内进行实时游戏。
 - **会话恢复与重连**: 支持玩家在意外断线后自动重连到原房间，保持游戏连续性。
 - **连接状态监控**: 实时显示连接状态，在网络异常时提供可视化反馈。
+- **灵活的房间管理**: 支持创建、加入和主动退出房间，玩家可以自由控制游戏参与状态。
 - **美观的现代化UI界面**: 使用 React 和 CSS3 精心设计的游戏界面，包含卡牌、筹码、玩家状态等元素。
 - **流畅的动画效果**: 通过CSS动画和React组件状态管理，实现了发牌、下注、收池等过程的流畅视觉效果。
 - **游戏音效支持**: 为关键游戏事件（如下注、发牌、获胜）配备了音效，提升游戏沉浸感。
 - **实时聊天功能**: 内置聊天框，方便玩家在游戏过程中进行交流。
 - **响应式设计**: 界面适配不同尺寸的屏幕，支持在移动设备上进行游戏。
-- **房间管理**: 支持创建和加入游戏房间，房主拥有开始游戏的权限。
 
 ## 🚀 技术栈
 
@@ -95,6 +95,7 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | `createRoom` | Client | Server | 玩家请求创建一个新房间。 |
 | `joinRoom` | Client | Server | 玩家请求加入一个现有房间。 |
+| `leaveRoom` | Client | Server | 玩家请求退出当前房间。 |
 | `attemptReconnect` | Client | Server | 玩家尝试重新连接到之前的房间。 |
 | `startGame` | Client | Server | 房主请求开始游戏。 |
 | `playerAction` | Client | Server | 玩家执行一个游戏动作（如跟注、加注）。 |
@@ -102,6 +103,7 @@ graph TD
 | `gameStateUpdate` | Server | Client | 服务器向房间内所有客户端广播最新的游戏状态。 |
 | `dealPrivateCards`| Server | Client | 服务器向特定玩家发送其私有手牌。 |
 | `handResult` | Server | Client | 服务器广播一手牌的最终结果（获胜者、牌型等）。 |
+| `leftRoom` | Server | Client | 服务器确认玩家已成功退出房间。 |
 | `reconnectSuccess` | Server | Client | 服务器确认玩家重连成功。 |
 | `reconnectFailed` | Server | Client | 服务器通知玩家重连失败。 |
 | `playerDisconnected` | Server | Client | 服务器通知房间内玩家某人暂时离线。 |

@@ -409,6 +409,56 @@ io.on('connection', (socket) => {
             });
       }
   });
+  // 新增：主动退出房间
+  socket.on('leaveRoom', ({ roomId }) => {
+    console.log(`Player ${socket.id} requesting to leave room ${roomId}`);
+    
+    const room = rooms.get(roomId);
+    if (!room || !room.players[socket.id]) {
+      return socket.emit('error', { message: '您不在此房间中' });
+    }
+
+    const player = room.players[socket.id];
+    console.log(`Player ${player.nickname} is leaving room ${roomId}`);
+
+    // 从断开连接记录中移除（如果存在）
+    if (disconnectedPlayers.has(socket.id)) {
+      disconnectedPlayers.delete(socket.id);
+    }
+
+    // 检查是否为房间创建者
+    const wasCreator = room.creator === socket.id;
+    
+    // 使用Game类的removePlayer方法
+    room.game.removePlayer(socket.id);
+    delete room.players[socket.id];
+    
+    // 让玩家离开Socket.IO房间
+    socket.leave(roomId);
+    
+    // 通知玩家已成功离开
+    socket.emit('leftRoom', { roomId, message: '已成功退出房间' });
+
+    if (Object.keys(room.players).length === 0) {
+      rooms.delete(roomId);
+      console.log(`Room ${roomId} is empty and has been deleted.`);
+    } else if (wasCreator) {
+      // 如果创建者离开，将房主权限转给第一个剩余玩家
+      const remainingPlayerIds = Object.keys(room.players);
+      if (remainingPlayerIds.length > 0) {
+        room.creator = remainingPlayerIds[0];
+        console.log(`Room ${roomId} creator left, new creator: ${room.creator}`);
+        // 通知新房主
+        io.to(room.creator).emit('becameCreator', { roomId });
+        // 广播更新的游戏状态（包含新的creator信息）
+        broadcastGameState(roomId);
+      }
+    } else {
+      io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
+      broadcastGameState(roomId);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     
