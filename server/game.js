@@ -979,8 +979,12 @@ class Game {
             currentPlayerTurn: this.currentPlayerTurn,
             playersLength: this.players.length,
             activePlayersLength: this.activePlayers.length,
-            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname }))
+            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })),
+            gameState: this.gameState
         });
+        
+        // 记录游戏是否在进行中
+        const wasGameInProgress = this.gameState !== 'WAITING' && this.gameState !== 'SHOWDOWN_COMPLETE' && this.gameState !== 'GAME_OVER';
         
         // 检查要移除的玩家是否是当前轮到的玩家
         let wasCurrentPlayer = false;
@@ -997,36 +1001,46 @@ class Game {
         this.players = this.players.filter(p => p.id !== playerId);
         this.activePlayers = this.activePlayers.filter(p => p.id !== playerId);
         
+        // 检查游戏是否需要重置（在游戏中且剩余玩家不足）
+        let shouldResetGame = false;
+        if (wasGameInProgress && this.players.length < 2) {
+            console.log('Insufficient players during game, resetting to WAITING state');
+            shouldResetGame = true;
+            this._resetToWaiting();
+        }
+        
         // 修正 currentPlayerTurn 索引
-        if (wasCurrentPlayer) {
-            // 如果移除的是当前玩家，需要找到下一个可行动的玩家
-            if (this.activePlayers.length === 0) {
-                this.currentPlayerTurn = -1;
-            } else {
-                // 如果移除的玩家在当前索引位置，保持索引不变（指向下一个玩家）
-                // 但需要确保索引不会越界
-                if (currentPlayerIndex >= this.activePlayers.length) {
-                    this.currentPlayerTurn = 0; // 回到开头
-                } else {
-                    this.currentPlayerTurn = currentPlayerIndex;
-                }
-                
-                // 确保指向的是可行动的玩家
-                let attempts = 0;
-                while (attempts < this.activePlayers.length && 
-                       this.activePlayers[this.currentPlayerTurn]?.status !== 'in-game') {
-                    this.currentPlayerTurn = (this.currentPlayerTurn + 1) % this.activePlayers.length;
-                    attempts++;
-                }
-                
-                if (attempts >= this.activePlayers.length) {
-                    console.warn('No valid players found after player removal');
+        if (!shouldResetGame) {
+            if (wasCurrentPlayer) {
+                // 如果移除的是当前玩家，需要找到下一个可行动的玩家
+                if (this.activePlayers.length === 0) {
                     this.currentPlayerTurn = -1;
+                } else {
+                    // 如果移除的玩家在当前索引位置，保持索引不变（指向下一个玩家）
+                    // 但需要确保索引不会越界
+                    if (currentPlayerIndex >= this.activePlayers.length) {
+                        this.currentPlayerTurn = 0; // 回到开头
+                    } else {
+                        this.currentPlayerTurn = currentPlayerIndex;
+                    }
+                    
+                    // 确保指向的是可行动的玩家
+                    let attempts = 0;
+                    while (attempts < this.activePlayers.length && 
+                           this.activePlayers[this.currentPlayerTurn]?.status !== 'in-game') {
+                        this.currentPlayerTurn = (this.currentPlayerTurn + 1) % this.activePlayers.length;
+                        attempts++;
+                    }
+                    
+                    if (attempts >= this.activePlayers.length) {
+                        console.warn('No valid players found after player removal');
+                        this.currentPlayerTurn = -1;
+                    }
                 }
+            } else if (this.currentPlayerTurn >= this.activePlayers.length) {
+                // 如果当前索引越界了，重置到有效范围
+                this.currentPlayerTurn = this.activePlayers.length > 0 ? 0 : -1;
             }
-        } else if (this.currentPlayerTurn >= this.activePlayers.length) {
-            // 如果当前索引越界了，重置到有效范围
-            this.currentPlayerTurn = this.activePlayers.length > 0 ? 0 : -1;
         }
         
         console.log('After removal:', {
@@ -1034,7 +1048,34 @@ class Game {
             playersLength: this.players.length,
             activePlayersLength: this.activePlayers.length,
             activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })),
-            currentPlayer: this.currentPlayerTurn >= 0 ? this.activePlayers[this.currentPlayerTurn]?.id : null
+            currentPlayer: this.currentPlayerTurn >= 0 ? this.activePlayers[this.currentPlayerTurn]?.id : null,
+            gameState: this.gameState,
+            shouldResetGame
+        });
+        
+        return { shouldResetGame };
+    }
+    
+    // 新增方法：重置游戏到准备阶段
+    _resetToWaiting() {
+        console.log('Resetting game to WAITING state due to insufficient players');
+        this.gameState = 'WAITING';
+        this.mainPot = 0;
+        this.sidePots = [];
+        this.communityCards = [];
+        this.currentBet = 0;
+        this.lastRaiser = null;
+        this.roundComplete = false;
+        this.currentPlayerTurn = -1;
+        this.activePlayers = [];
+        
+        // 重置所有玩家状态
+        this.players.forEach(player => {
+            player.hand = [];
+            player.status = 'in-game';
+            player.currentBet = 0;
+            player.totalBetThisHand = 0;
+            player.hasActed = false;
         });
     }
 

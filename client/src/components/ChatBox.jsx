@@ -79,7 +79,19 @@ const ChatBox = ({ roomId }) => {
             }}>
                 {messages.map((msg, index) => (
                     <div key={index} style={{ marginBottom: '4px', wordWrap: 'break-word' }}>
-                        <strong style={{ color: '#007bff' }}>{msg.sender}:</strong> 
+                        <strong style={{ color: '#007bff' }}>{msg.sender}</strong>
+                        {msg.isSpectator && (
+                            <span style={{ 
+                                marginLeft: '4px',
+                                padding: '2px 6px',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                fontWeight: '600'
+                            }}>旁观者</span>
+                        )}
+                        <strong>:</strong> 
                         <span style={{ marginLeft: '4px' }}>{msg.message}</span>
                     </div>
                 ))}

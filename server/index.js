@@ -61,8 +61,11 @@ setInterval(cleanupDisconnectedPlayers, 60000); // 每分钟清理一次
 // 确保房间设置的辅助函数
 const ensureRoomSettings = (room) => {
     if (!room.settings) {
-        room.settings = { showAllHands: true };
+        room.settings = { showAllHands: true, initialChips: 1000 };
         console.log('房间设置被重新初始化为默认值');
+    }
+    if (typeof room.settings.initialChips !== 'number') {
+        room.settings.initialChips = 1000;
     }
     return room;
 };
@@ -97,6 +100,20 @@ const broadcastGameState = (roomId) => {
         creator: room.creator,
         settings: room.settings
     };
+
+    // 添加旁观者信息
+    publicGameState.spectators = {};
+    for (const [socketId, spectator] of Object.entries(room.spectators || {})) {
+        publicGameState.spectators[socketId] = {
+            id: spectator.id,
+            nickname: spectator.nickname
+        };
+    }
+
+    // 如果游戏结束且有排行榜数据，包含在广播中
+    if (room.leaderboard) {
+        publicGameState.leaderboard = room.leaderboard;
+    }
 
     io.to(roomId).emit('gameStateUpdate', publicGameState);
 };
@@ -181,11 +198,13 @@ io.on('connection', (socket) => {
     const game = new Game([player]);    rooms.set(roomId, {
         roomId,
         players: { [socket.id]: player },
+        spectators: {}, // Add spectators object
         game,
         maxPlayers: 8,
         creator: socket.id,
         settings: {
-            showAllHands: true
+            showAllHands: true,
+            initialChips: 1000
         }
     });
     
@@ -201,7 +220,7 @@ io.on('connection', (socket) => {
     socket.emit('roomSettingsUpdate', { settings: savedRoom.settings });
   });
 
-  socket.on('joinRoom', ({ roomId, nickname }) => {
+  socket.on('joinRoom', ({ roomId, nickname, asSpectator }) => {
     if (!nickname || nickname.trim() === '') {
         return socket.emit('error', { message: '昵称不能为空' });
     }
@@ -210,21 +229,51 @@ io.on('connection', (socket) => {
     if (!room) {
         return socket.emit('error', { message: 'Room not found' });
     }
-    if (room.players[socket.id]) {
+    if (room.players[socket.id] || room.spectators[socket.id]) {
         return socket.emit('error', { message: '您已在此房间中' });
     }
+    
+    // If game is in progress and not explicitly joining as spectator, ask
+    if (room.game.gameState !== 'WAITING' && !asSpectator) {
+        return socket.emit('gameInProgress', { roomId });
+    }
+    
+    // Join as spectator
+    if (asSpectator || room.game.gameState !== 'WAITING') {
+        room.spectators[socket.id] = {
+            id: socket.id,
+            nickname: nickname.trim()
+        };
+        socket.join(roomId);
+        socket.emit('roomJoined', { 
+            roomId, 
+            isCreator: false,
+            isSpectator: true
+        });
+        io.to(roomId).emit('spectatorJoined', { 
+            roomId, 
+            spectatorId: socket.id,
+            nickname: nickname.trim()
+        });
+        broadcastGameState(roomId);
+        return;
+    }
+    
+    // Join as player (only if game is WAITING)
     if (Object.keys(room.players).length >= room.maxPlayers) {
         return socket.emit('error', { message: 'Room is full' });
     }
-    if (room.game.gameState !== 'WAITING') {
-        return socket.emit('error', { message: '游戏已开始，无法加入' });
-    }
 
-    const player = new Player(socket.id, nickname.trim());
+    const initialChips = room.settings?.initialChips || 1000;
+    const player = new Player(socket.id, nickname.trim(), initialChips);
     room.players[socket.id] = player;
     room.game.addPlayer(player);    socket.join(roomId);
     // 通知是否为房间创建者
-    socket.emit('roomJoined', { roomId, isCreator: room.creator === socket.id });
+    socket.emit('roomJoined', { 
+        roomId, 
+        isCreator: room.creator === socket.id,
+        isSpectator: false
+    });
     io.to(roomId).emit('playerJoined', { roomId, players: room.game.players.map(p => p.id) });
 
     broadcastGameState(roomId);
@@ -272,6 +321,99 @@ io.on('connection', (socket) => {
         console.error('Error starting game:', error);
         socket.emit('error', { message: error.message });
     }
+  });
+
+  // Switch from spectator to player (only in WAITING state)
+  socket.on('switchToPlayer', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) {
+        return socket.emit('error', { message: '房间不存在' });
+    }
+    
+    // Only allow in WAITING state
+    if (room.game.gameState !== 'WAITING') {
+        return socket.emit('error', { message: '游戏已开始，无法加入对局' });
+    }
+    
+    // Check if user is spectator
+    if (!room.spectators[socket.id]) {
+        return socket.emit('error', { message: '您不是旁观者' });
+    }
+    
+    // Check if room is full
+    if (Object.keys(room.players).length >= room.maxPlayers) {
+        return socket.emit('error', { message: '房间已满' });
+    }
+    
+    const spectator = room.spectators[socket.id];
+    delete room.spectators[socket.id];
+    
+    // Add as player with initialChips from settings
+    const initialChips = room.settings?.initialChips || 1000;
+    const player = new Player(socket.id, spectator.nickname, initialChips);
+    room.players[socket.id] = player;
+    room.game.addPlayer(player);
+    
+    socket.emit('roomJoined', { 
+        roomId, 
+        isCreator: room.creator === socket.id,
+        isSpectator: false
+    });
+    io.to(roomId).emit('playerJoined', { roomId, players: room.game.players.map(p => p.id) });
+    io.to(roomId).emit('spectatorLeft', { 
+        roomId, 
+        spectatorId: socket.id,
+        nickname: spectator.nickname
+    });
+    
+    broadcastGameState(roomId);
+  });
+
+  // Switch from player to spectator (only in WAITING state)
+  socket.on('switchToSpectator', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) {
+        return socket.emit('error', { message: '房间不存在' });
+    }
+    
+    // Only allow in WAITING state
+    if (room.game.gameState !== 'WAITING') {
+        return socket.emit('error', { message: '游戏进行中，无法切换为旁观者' });
+    }
+    
+    // Check if user is player
+    if (!room.players[socket.id]) {
+        return socket.emit('error', { message: '您不是玩家' });
+    }
+    
+    // Don't allow room creator to become spectator
+    if (room.creator === socket.id) {
+        return socket.emit('error', { message: '房间创建者无法切换为旁观者' });
+    }
+    
+    const player = room.players[socket.id];
+    delete room.players[socket.id];
+    room.game.removePlayer(socket.id);
+    
+    // Add as spectator
+    room.spectators[socket.id] = {
+        id: socket.id,
+        nickname: player.nickname
+    };
+    
+    socket.emit('roomJoined', { 
+        roomId, 
+        isCreator: false,
+        isSpectator: true
+    });
+    io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
+    io.to(roomId).emit('spectatorJoined', { 
+        roomId, 
+        spectatorId: socket.id,
+        nickname: player.nickname
+    });
+    
+    broadcastGameState(roomId);
   });
 
   socket.on('playerAction', ({ roomId, action, betAmount }) => {
@@ -403,9 +545,14 @@ io.on('connection', (socket) => {
       const room = rooms.get(roomId);
       if (room) {
           const player = room.players[socket.id];
+          const spectator = room.spectators[socket.id];
+          const sender = player ? player.nickname : (spectator ? spectator.nickname : 'Unknown');
+          const isSpectator = !player && !!spectator;
+          
           io.to(roomId).emit('newMessage', { 
-              sender: player ? player.nickname : 'Spectator', 
-              message 
+              sender, 
+              message,
+              isSpectator
             });
       }
   });
@@ -430,7 +577,7 @@ io.on('connection', (socket) => {
     const wasCreator = room.creator === socket.id;
     
     // 使用Game类的removePlayer方法
-    room.game.removePlayer(socket.id);
+    const removeResult = room.game.removePlayer(socket.id);
     delete room.players[socket.id];
     
     // 让玩家离开Socket.IO房间
@@ -450,12 +597,181 @@ io.on('connection', (socket) => {
         console.log(`Room ${roomId} creator left, new creator: ${room.creator}`);
         // 通知新房主
         io.to(room.creator).emit('becameCreator', { roomId });
+        
+        // 如果游戏因玩家不足而重置，通知新房主
+        if (removeResult && removeResult.shouldResetGame) {
+          io.to(room.creator).emit('gameResetDueToInsufficientPlayers', {
+            message: '游戏剩余玩家不足，将回退到准备阶段'
+          });
+        }
+        
         // 广播更新的游戏状态（包含新的creator信息）
         broadcastGameState(roomId);
       }
     } else {
+      // 如果游戏因玩家不足而重置，通知房主
+      if (removeResult && removeResult.shouldResetGame) {
+        io.to(room.creator).emit('gameResetDueToInsufficientPlayers', {
+          message: '游戏剩余玩家不足，将回退到准备阶段'
+        });
+      }
+      
       io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
       broadcastGameState(roomId);
+    }
+  });
+
+  // 新增：重置游戏到准备阶段
+  socket.on('resetGame', ({ roomId }) => {
+    console.log(`Player ${socket.id} requesting to reset game in room ${roomId}`);
+    
+    const room = rooms.get(roomId);
+    if (!room || !room.game) {
+      return socket.emit('error', { message: '房间不存在' });
+    }
+
+    // 检查是否为房间创建者
+    if (room.creator !== socket.id) {
+      return socket.emit('error', { message: '只有房间创建者才能重置游戏' });
+    }
+
+    // 检查是否有足够的玩家
+    if (Object.keys(room.players).length < 2) {
+      return socket.emit('error', { message: '至少需要2个玩家才能重置游戏' });
+    }
+
+    try {
+      // 重置游戏状态
+      room.game.gameState = 'WAITING';
+      room.game.mainPot = 0;
+      room.game.sidePots = [];
+      room.game.communityCards = [];
+      room.game.currentBet = 0;
+      room.game.lastRaiser = null;
+      room.game.roundComplete = false;
+      room.game.currentPlayerTurn = -1;
+      
+      // 清除排行榜数据
+      room.leaderboard = null;
+      
+      // 重置所有玩家状态
+      const initialChips = room.settings?.initialChips || 1000;
+      room.game.players.forEach(player => {
+        player.hand = [];
+        player.status = 'in-game';
+        player.currentBet = 0;
+        player.totalBetThisHand = 0;
+        player.hasActed = false;
+        player.chips = initialChips; // 重置筹码到设定的初始值
+      });
+      
+      room.game.activePlayers = [];
+      
+      // 清除所有玩家的私人手牌
+      Object.keys(room.players).forEach(playerId => {
+        io.to(playerId).emit('dealPrivateCards', { hand: [] });
+      });
+      
+      console.log(`Game reset to WAITING state in room ${roomId}`);
+      
+      // 广播更新的游戏状态
+      broadcastGameState(roomId);
+      
+      // 通知所有玩家游戏已重置
+      io.to(roomId).emit('gameReset', { message: '游戏已重置到准备阶段' });
+      
+    } catch (error) {
+      console.error('Error resetting game:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  // 新增：强制结束游戏并显示排行榜
+  socket.on('endGame', ({ roomId }) => {
+    console.log(`Player ${socket.id} requesting to end game in room ${roomId}`);
+    
+    const room = rooms.get(roomId);
+    if (!room || !room.game) {
+      return socket.emit('error', { message: '房间不存在' });
+    }
+
+    // 检查是否为房间创建者
+    if (room.creator !== socket.id) {
+      return socket.emit('error', { message: '只有房间创建者才能结束游戏' });
+    }
+
+    // 检查游戏是否在进行中（排除WAITING和已经结束的GAME_OVER）
+    if (room.game.gameState === 'WAITING' || room.game.gameState === 'GAME_OVER') {
+      return socket.emit('error', { message: '游戏未在进行中' });
+    }
+
+    try {
+      // 强制结束游戏
+      room.game.gameState = 'GAME_OVER';
+      
+      // 准备排行榜数据（按剩余筹码排序）
+      const leaderboard = room.game.players
+        .map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          chips: p.chips
+        }))
+        .sort((a, b) => b.chips - a.chips);
+      
+      // 存储排行榜到房间对象
+      room.leaderboard = leaderboard;
+      
+      console.log(`Game forcefully ended in room ${roomId}. Leaderboard:`, leaderboard);
+      
+      // 广播游戏结束和排行榜
+      io.to(roomId).emit('gameOver', { 
+        message: '游戏已由房主结束',
+        leaderboard: leaderboard,
+        forced: true
+      });
+      
+      // 广播更新的游戏状态（包含排行榜）
+      broadcastGameState(roomId);
+      
+    } catch (error) {
+      console.error('Error ending game:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  // 新增：关闭房间
+  socket.on('closeRoom', ({ roomId }) => {
+    console.log(`Player ${socket.id} requesting to close room ${roomId}`);
+    
+    const room = rooms.get(roomId);
+    if (!room) {
+      return socket.emit('error', { message: '房间不存在' });
+    }
+
+    // 检查是否为房间创建者
+    if (room.creator !== socket.id) {
+      return socket.emit('error', { message: '只有房间创建者才能关闭房间' });
+    }
+
+    try {
+      // 通知所有玩家房间被关闭
+      io.to(roomId).emit('roomClosed', { message: '房主已关闭房间' });
+      
+      // 让所有玩家离开房间
+      Object.keys(room.players).forEach(playerId => {
+        const playerSocket = io.sockets.sockets.get(playerId);
+        if (playerSocket) {
+          playerSocket.leave(roomId);
+        }
+      });
+      
+      // 删除房间
+      rooms.delete(roomId);
+      console.log(`Room ${roomId} has been closed by creator`);
+      
+    } catch (error) {
+      console.error('Error closing room:', error);
+      socket.emit('error', { message: error.message });
     }
   });
 
@@ -463,6 +779,19 @@ io.on('connection', (socket) => {
     console.log(`User disconnected: ${socket.id}`);
     
     for (const [roomId, room] of rooms.entries()) {
+        // Check if disconnecting user is a spectator
+        if (room.spectators[socket.id]) {
+            const spectator = room.spectators[socket.id];
+            delete room.spectators[socket.id];
+            io.to(roomId).emit('spectatorLeft', { 
+                roomId, 
+                spectatorId: socket.id,
+                nickname: spectator.nickname
+            });
+            console.log(`Spectator ${spectator.nickname} left room ${roomId}`);
+            break;
+        }
+        
         if (room.players[socket.id]) {
             const player = room.players[socket.id];
             
@@ -489,7 +818,7 @@ io.on('connection', (socket) => {
                     const currentRoom = rooms.get(roomId);
                     if (currentRoom && currentRoom.players[socket.id]) {
                         // 使用Game类的removePlayer方法
-                        currentRoom.game.removePlayer(socket.id);
+                        const removeResult = currentRoom.game.removePlayer(socket.id);
                         delete currentRoom.players[socket.id];
                         
                         if (Object.keys(currentRoom.players).length === 0) {
@@ -503,10 +832,25 @@ io.on('connection', (socket) => {
                                 console.log(`Room ${roomId} creator left, new creator: ${currentRoom.creator}`);
                                 // 通知新房主
                                 io.to(currentRoom.creator).emit('becameCreator', { roomId });
+                                
+                                // 如果游戏因玩家不足而重置，通知新房主
+                                if (removeResult && removeResult.shouldResetGame) {
+                                    io.to(currentRoom.creator).emit('gameResetDueToInsufficientPlayers', {
+                                        message: '游戏剩余玩家不足，将回退到准备阶段'
+                                    });
+                                }
+                                
                                 // 广播更新的游戏状态（包含新的creator信息）
                                 broadcastGameState(roomId);
                             }
                         } else {
+                            // 如果游戏因玩家不足而重置，通知房主
+                            if (removeResult && removeResult.shouldResetGame) {
+                                io.to(currentRoom.creator).emit('gameResetDueToInsufficientPlayers', {
+                                    message: '游戏剩余玩家不足，将回退到准备阶段'
+                                });
+                            }
+                            
                             io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
                             broadcastGameState(roomId);
                         }
@@ -561,6 +905,58 @@ io.on('connection', (socket) => {
         broadcastGameState(roomId);
     } catch (error) {
         console.error('Error in updateRoomSettings:', error);
+        socket.emit('error', { message: error.message });
+    }
+  });
+
+  socket.on('updateInitialChips', ({ roomId, initialChips }) => {
+    try {
+        const room = rooms.get(roomId);
+        if (!room) {
+            socket.emit('error', { message: '房间不存在' });
+            return;
+        }
+
+        // 检查是否为房间创建者
+        if (room.creator !== socket.id) {
+            socket.emit('error', { message: '只有房间创建者才能修改筹码设置' });
+            return;
+        }
+
+        // 验证筹码数量
+        const chips = parseInt(initialChips);
+        if (isNaN(chips) || chips < 500 || chips > 50000) {
+            socket.emit('error', { message: '筹码数量必须在500到50000之间' });
+            return;
+        }
+
+        // 确保房间有设置对象
+        if (!room.settings) {
+            room.settings = { showAllHands: true, initialChips: 1000 };
+        }
+        
+        // 更新设置
+        room.settings.initialChips = chips;
+        
+        // 重置所有玩家的筹码
+        for (const playerId in room.players) {
+            room.players[playerId].chips = chips;
+        }
+        
+        // 更新游戏对象中的玩家筹码
+        room.game.players.forEach(player => {
+            player.chips = chips;
+        });
+        
+        // 立即向所有人广播设置更新
+        io.to(roomId).emit('roomSettingsUpdate', { settings: room.settings });
+        
+        // 广播游戏状态以确保同步
+        broadcastGameState(roomId);
+        
+        console.log(`Room ${roomId} initial chips updated to ${chips}`);
+    } catch (error) {
+        console.error('Error in updateInitialChips:', error);
         socket.emit('error', { message: error.message });
     }
   });

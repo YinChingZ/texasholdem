@@ -511,6 +511,27 @@
     box-shadow: 0 8px 20px rgba(108, 117, 125, 0.6);
 }
 
+.close-result-btn.danger {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.close-result-btn.danger:hover {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 193, 7, 0.6);
+}
+
 .close-result-btn:active {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);

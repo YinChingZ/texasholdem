@@ -37,12 +37,16 @@ const formatCard = (card) => {
     return card;
 };
 
-const HandResult = ({ result, socket, roomId, onClose }) => {
+const HandResult = ({ result, socket, roomId, onClose, gameState, onEndGame }) => {
     const { isRoomCreator } = useSocket();
     
     if (!result) return null;
 
     const { winners, communityCards, playersHands, handComparison, showAllHands } = result;
+    
+    // Check how many players have chips remaining
+    const playersWithChips = gameState?.players?.filter(p => p.chips > 0).length || 0;
+    const onlyOnePlayerLeft = playersWithChips <= 1;
       // 处理不同格式的卡牌数据的辅助函数
     const parseCardData = (card) => {
         if (typeof card === 'string') {
@@ -251,31 +255,80 @@ const HandResult = ({ result, socket, roomId, onClose }) => {
                     </div>
                 )}<div className="action-buttons">
                     {isRoomCreator ? (
-                        <button 
-                            className="close-result-btn primary"
-                            onClick={handleContinueGame}
-                        >
-                            继续游戏
-                        </button>
+                        <>
+                            {/* If only one player left, show only End Game and View Only */}
+                            {onlyOnePlayerLeft ? (
+                                <>
+                                    <button 
+                                        className="close-result-btn danger"
+                                        onClick={() => {
+                                            onClose();
+                                            if (onEndGame) onEndGame();
+                                        }}
+                                    >
+                                        结束游戏
+                                    </button>
+                                    <button 
+                                        className="close-result-btn secondary"
+                                        onClick={() => {
+                                            console.log('Closing hand result without continuing game');
+                                            onClose();
+                                        }}
+                                    >
+                                        仅查看
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Normal case: show Continue, End Game, and View Only */}
+                                    <button 
+                                        className="close-result-btn primary"
+                                        onClick={handleContinueGame}
+                                    >
+                                        继续游戏
+                                    </button>
+                                    <button 
+                                        className="close-result-btn danger"
+                                        onClick={() => {
+                                            onClose();
+                                            if (onEndGame) onEndGame();
+                                        }}
+                                    >
+                                        结束游戏
+                                    </button>
+                                    <button 
+                                        className="close-result-btn secondary"
+                                        onClick={() => {
+                                            console.log('Closing hand result without continuing game');
+                                            onClose();
+                                        }}
+                                    >
+                                        仅查看
+                                    </button>
+                                </>
+                            )}
+                        </>
                     ) : (
-                        <div style={{ 
-                            textAlign: 'center', 
-                            color: '#6c757d', 
-                            fontSize: '14px',
-                            marginBottom: '10px' 
-                        }}>
-                            等待房主开始下一局...
-                        </div>
+                        <>
+                            <div style={{ 
+                                textAlign: 'center', 
+                                color: '#6c757d', 
+                                fontSize: '14px',
+                                marginBottom: '10px' 
+                            }}>
+                                等待房主开始下一局...
+                            </div>
+                            <button 
+                                className="close-result-btn secondary"
+                                onClick={() => {
+                                    console.log('Closing hand result without continuing game');
+                                    onClose();
+                                }}
+                            >
+                                仅查看
+                            </button>
+                        </>
                     )}
-                    <button 
-                        className="close-result-btn secondary"
-                        onClick={() => {
-                            console.log('Closing hand result without continuing game');
-                            onClose();
-                        }}
-                    >
-                        仅查看
-                    </button>
                 </div>
             </div>
         </div>

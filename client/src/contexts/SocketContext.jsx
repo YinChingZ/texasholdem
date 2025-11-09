@@ -20,6 +20,7 @@ export const SocketProvider = ({ children }) => {
     const [error, setError] = useState(null);
     const [handResult, setHandResult] = useState(null);
     const [isRoomCreator, setIsRoomCreator] = useState(false);  // 新增：追踪是否为房间创建者
+    const [isSpectator, setIsSpectator] = useState(false);  // 新增：追踪是否为旁观者
     const [roomSettings, setRoomSettings] = useState({ showAllHands: true });  // 新增：房间设置状态
     const [connectionStatus, setConnectionStatus] = useState('connected'); // 新增：连接状态
     const [isReconnecting, setIsReconnecting] = useState(false); // 新增：重连状态
@@ -137,10 +138,11 @@ export const SocketProvider = ({ children }) => {
             localStorage.setItem('texasholdem_room', roomId);
         });
 
-        socket.on('roomJoined', ({ roomId, isCreator }) => {
-            console.log('Room joined:', roomId, 'isCreator:', isCreator);
+        socket.on('roomJoined', ({ roomId, isCreator, isSpectator: spectator }) => {
+            console.log('Room joined:', roomId, 'isCreator:', isCreator, 'isSpectator:', spectator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
+            setIsSpectator(spectator || false);
             setHasLeftRoom(false); // 重置退出标记
             
             // 保存房间信息到本地存储
@@ -196,11 +198,50 @@ export const SocketProvider = ({ children }) => {
 
         socket.on('gameOver', (data) => {
             console.log('Game over:', data);
-            alert(data.message || '游戏结束');
-            // 可选：重置所有状态
+            // The leaderboard data will come through gameStateUpdate
+            // Just clear hand result and private cards
             setHandResult(null);
             setPrivateCards([]);
-        });socket.on('error', (error) => {
+        });
+
+        socket.on('roomClosed', (data) => {
+            console.log('Room closed:', data);
+            alert(data.message || '房间已关闭');
+            
+            // Clear all state and return to login
+            setHasLeftRoom(true);
+            localStorage.removeItem('texasholdem_room');
+            localStorage.removeItem('texasholdem_nickname');
+            setRoom(null);
+            setGameState(null);
+            setPrivateCards([]);
+            setIsRoomCreator(false);
+            setHandResult(null);
+        });
+
+        socket.on('gameReset', (data) => {
+            console.log('Game reset:', data);
+            // 清除手牌结果和私人手牌
+            setHandResult(null);
+            setPrivateCards([]);
+            // 可选：显示提示消息
+            if (data.message) {
+                alert(data.message);
+            }
+        });
+
+        socket.on('gameResetDueToInsufficientPlayers', (data) => {
+            console.log('Game reset due to insufficient players:', data);
+            // 清除手牌结果和私人手牌
+            setHandResult(null);
+            setPrivateCards([]);
+            // 显示提示消息给房主
+            if (data.message) {
+                alert(data.message);
+            }
+        });
+
+        socket.on('error', (error) => {
             console.error('Server error:', error);
             const errorMessage = error?.message || error || 'Unknown server error';
             setError(errorMessage);
@@ -220,6 +261,9 @@ export const SocketProvider = ({ children }) => {
             socket.off('handResult');
             socket.off('becameCreator');
             socket.off('gameOver');
+            socket.off('roomClosed');
+            socket.off('gameReset');
+            socket.off('gameResetDueToInsufficientPlayers');
             socket.off('error');
         };
     }, []);    const clearHandResult = () => {
@@ -243,6 +287,7 @@ export const SocketProvider = ({ children }) => {
         handResult,
         clearHandResult,
         isRoomCreator,  // 导出创建者状态
+        isSpectator,    // 导出旁观者状态
         roomSettings,   // 导出房间设置状态
         connectionStatus, // 导出连接状态
         isReconnecting,   // 导出重连状态
