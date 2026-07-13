@@ -1,0 +1,103 @@
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --color-app: #f2efe7;
+  --color-surface: #fbf9f3;
+  --color-surface-raised: #fffdf8;
+  --color-control: #fffdf8;
+  --color-ambient: rgba(27, 36, 32, .045);
+  --color-felt: #d9e5dc;
+  --color-felt-dark: #c5d7ca;
+  --color-border: #d2d5ce;
+  --color-border-strong: #b8c0b8;
+  --color-text: #1b2420;
+  --color-text-secondary: #56615b;
+  --color-text-muted: #7c857f;
+  --color-gold: #986116;
+  --color-gold-hover: #82510f;
+  --color-gold-control: #b98738;
+  --color-gold-control-hover: #aa7528;
+  --color-on-gold: #17130c;
+  --color-success: #347d56;
+  --color-success-hover: #286745;
+  --color-success-control: #347d56;
+  --color-on-success: #ffffff;
+  --color-danger: #b9504a;
+  --color-danger-hover: #a3423d;
+  --color-danger-control: #b9504a;
+  --color-on-danger: #ffffff;
+  --color-warning: #b96e33;
+  --color-info: #587a80;
+  --game-felt-center: #39785b;
+  --game-felt-edge: #245c43;
+  --game-rail: #254237;
+  --shadow-overlay: 0 24px 64px rgba(38, 44, 40, 0.14);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+
+  --font-sans: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-app: #0d1110;
+  --color-surface: #151b18;
+  --color-surface-raised: #1c2420;
+  --color-control: #101613;
+  --color-ambient: rgba(241, 237, 228, .025);
+  --color-felt: #174535;
+  --color-felt-dark: #103429;
+  --color-border: #2b3731;
+  --color-border-strong: #3d4b44;
+  --color-text: #f1ede4;
+  --color-text-secondary: #a4ada7;
+  --color-text-muted: #707a74;
+  --color-gold: #d2a85c;
+  --color-gold-hover: #e0ba72;
+  --color-gold-control: #d2a85c;
+  --color-gold-control-hover: #e0ba72;
+  --color-on-gold: #17130c;
+  --color-success: #4ba877;
+  --color-success-hover: #4ba877;
+  --color-success-control: #4ba877;
+  --color-on-success: #0d1110;
+  --color-danger: #d66b64;
+  --color-danger-hover: #da6c65;
+  --color-danger-control: #a9443f;
+  --color-on-danger: #ffffff;
+  --color-warning: #d58a45;
+  --color-info: #7e9ca0;
+  --game-felt-center: #1d5a43;
+  --game-felt-edge: #103d2d;
+  --game-rail: #162c24;
+  --shadow-overlay: 0 24px 64px rgba(0, 0, 0, 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

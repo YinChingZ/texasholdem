@@ -1,0 +1,5 @@
+.index { min-height: 100dvh; padding: 48px; background: var(--color-app); color: var(--color-text); font-family: var(--font-sans); }
+.index h1 { color: var(--color-text); }
+.index p { color: var(--color-text-secondary); }
+.index nav { display: flex; flex-wrap: wrap; gap: 12px; max-width: 720px; }
+.index a { padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-gold); }

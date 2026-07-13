@@ -1,0 +1,23 @@
+.shell { --game-felt-center: #39785b; --game-felt-edge: #245c43; --game-rail: #254237; width: 100%; min-height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: var(--color-app); color: var(--color-text); font-family: var(--font-sans); }
+:global([data-theme='dark']) .shell { --game-felt-center: #1d5a43; --game-felt-edge: #103d2d; --game-rail: #162c24; }
+.body { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
+.playColumn { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(390px, 1fr) auto; gap: 14px; padding: 16px; overflow: hidden; }
+
+@media (max-width: 1180px) {
+  .body { grid-template-columns: minmax(0, 1fr) 292px; }
+}
+
+@media (max-width: 1024px) {
+  .shell { height: 100dvh; min-height: 0; overflow: hidden; }
+  .body { display: block; min-height: 0; }
+  .playColumn { height: calc(100dvh - 60px); min-height: 0; grid-template-rows: minmax(0, 1fr) auto; padding: 12px; overflow: hidden; }
+}
+
+@media (max-width: 700px) {
+  .playColumn { height: calc(100dvh - 60px); min-height: 0; grid-template-rows: minmax(270px, 1fr) auto; gap: 8px; padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .shell { grid-template-rows: 48px minmax(0, 1fr); }
+  .playColumn { height: calc(100dvh - 48px); grid-template-columns: minmax(0, 1fr) minmax(300px, 39vw); grid-template-rows: minmax(0, 1fr); gap: 6px; padding: 6px max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
+}

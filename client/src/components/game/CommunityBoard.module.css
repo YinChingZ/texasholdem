@@ -1,0 +1,12 @@
+.board { position: absolute; z-index: 1; left: 50%; top: 48%; display: grid; justify-items: center; gap: 10px; transform: translate(-50%, -50%); }
+.phase { padding: 4px 8px; border: 1px solid rgba(244, 239, 226, .24); border-radius: 999px; color: var(--table-text-muted); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+.cards { display: flex; justify-content: center; gap: clamp(4px, .7vw, 9px); }
+.pot { display: flex; align-items: center; gap: 6px; color: var(--table-text-muted); font-size: 10px; }
+.pot strong { color: var(--color-gold); font: 750 17px/1 var(--font-mono); }
+.pot small { padding-left: 6px; border-left: 1px solid var(--table-seat-border); color: var(--table-text-muted); font-size: 9px; }
+
+@media (max-width: 700px) {
+  .board { top: 46%; gap: 6px; }
+  .phase { display: none; }
+  .pot small, .pot > span { display: none; }
+}

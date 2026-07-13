@@ -1,0 +1,27 @@
+.seat { --seat-x: 50%; --seat-y: 50%; position: absolute; z-index: 2; left: var(--seat-x); top: var(--seat-y); width: clamp(112px, 11vw, 148px); min-height: 64px; padding: 8px 10px; border: 1px solid var(--table-seat-border); border-radius: var(--radius-lg); background: var(--table-seat); color: var(--table-text); box-shadow: 0 6px 16px rgba(7, 22, 16, .18); transform: translate(-50%, -50%); transition: border-color var(--duration-normal) var(--ease-standard), opacity var(--duration-normal) var(--ease-standard); }
+.current { border-color: var(--color-gold); box-shadow: 0 0 0 2px var(--table-turn-ring), 0 6px 16px rgba(7, 22, 16, .22); }
+.dimmed { opacity: .52; }
+.identity { min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.avatar { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--table-seat-border); border-radius: 50%; background: var(--table-seat-strong); color: var(--table-text); font-size: 11px; font-weight: 750; }
+.name { min-width: 0; display: grid; gap: 1px; }
+.name strong { overflow: hidden; color: var(--table-text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.name small { color: var(--table-text-muted); font-size: 9px; }
+.stack { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--table-seat-border); color: var(--table-text-muted); font: 650 10px/1 var(--font-mono); }
+.stack span { display: inline-flex; align-items: center; gap: 3px; }
+.stack em { color: var(--color-gold); font: 650 9px/1 var(--font-sans); }
+.roles { position: absolute; left: 8px; top: -10px; display: flex; gap: 3px; }
+.roles span { min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 4px; border: 1px solid var(--color-gold); border-radius: 50%; background: var(--table-seat-strong); color: var(--color-gold); font: 750 8px/1 var(--font-mono); }
+
+@media (max-width: 1100px) {
+  .seat { width: 110px; min-height: 58px; padding: 7px 8px; }
+  .identity { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 5px; }
+  .avatar { width: 24px; height: 24px; }
+}
+
+@media (max-width: 700px) {
+  .seat { width: 88px; min-height: 50px; padding: 5px 6px; }
+  .avatar { display: none; }
+  .identity { grid-template-columns: minmax(0, 1fr) auto; }
+  .stack { margin-top: 3px; padding-top: 3px; }
+  .stack em, .name small { display: none; }
+}

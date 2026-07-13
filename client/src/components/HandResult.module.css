@@ -1,0 +1,48 @@
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .85fr); gap: var(--space-5); }
+.board, .winners, .hands { min-width: 0; }
+.sectionHeading { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.sectionHeading h3 { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--color-text); font-size: 14px; }
+.sectionHeading > span { color: var(--color-text-muted); font: 600 12px/1 var(--font-mono); }
+.cardGroup { min-width: 0; display: grid; gap: 7px; }
+.cards { display: flex; flex-wrap: wrap; gap: 7px; }
+.cardLabel { color: var(--color-text-muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
+.winnerList { display: grid; gap: 8px; }
+.winner { min-height: 64px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(166, 111, 33, .42); border-left: 3px solid var(--color-gold); border-radius: var(--radius-md); background: var(--color-surface); }
+.winner > svg { color: var(--color-gold); }
+.winner > div { min-width: 0; display: grid; gap: 2px; }
+.winner strong { overflow: hidden; color: var(--color-text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.winner span { color: var(--color-text-secondary); font-size: 12px; }
+.winner small { color: var(--color-text-muted); font-size: 11px; }
+.winner b { color: var(--color-gold); font: 750 15px/1 var(--font-mono); }
+.privacyNote { display: flex; align-items: center; gap: 10px; margin-top: var(--space-5); padding: 11px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); }
+.privacyNote svg { flex: 0 0 auto; color: var(--color-text-muted); }
+.privacyNote span { display: grid; gap: 2px; font-size: 12px; }
+.privacyNote strong { color: var(--color-text); font-size: 13px; }
+.hands { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.handGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.playerHand { min-width: 0; display: grid; gap: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+.winningHand { border-color: rgba(166, 111, 33, .48); }
+.playerHand > header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.playerHand > header div { min-width: 0; display: grid; gap: 2px; }
+.playerHand > header strong { overflow: hidden; color: var(--color-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.playerHand > header span { color: var(--color-text-secondary); font-size: 11px; }
+.playerHand > header b { min-width: 30px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-gold); font: 700 11px/1 var(--font-mono); text-align: center; }
+.waiting { margin-right: auto; color: var(--color-text-secondary); font-size: 13px; }
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; gap: var(--space-5); }
+  .handGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .cards { gap: 5px; }
+  .winner { grid-template-columns: minmax(0, 1fr) auto; }
+  .winner > svg { display: none; }
+  .privacyNote { align-items: flex-start; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .layout { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .hands { margin-top: 14px; padding-top: 12px; }
+  .handGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

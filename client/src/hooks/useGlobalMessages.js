@@ -1,69 +1,48 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-export const useGlobalMessages = (gameState, previousGameState) => {
-    const [messages, setMessages] = useState([]);
-    const prevPlayers = useRef([]);
-    const messageId = useRef(0);
+export function useGlobalMessages(gameState) {
+  const [messages, setMessages] = useState([])
+  const previousPlayers = useRef([])
+  const messageId = useRef(0)
+  const removalTimers = useRef(new Map())
 
-    useEffect(() => {
-        if (!gameState || !gameState.players) return;
+  const removeMessage = useCallback((id) => {
+    const timer = removalTimers.current.get(id)
+    if (timer) window.clearTimeout(timer)
+    removalTimers.current.delete(id)
+    setMessages((current) => current.filter((message) => message.id !== id))
+  }, [])
 
-        // 检测玩家状态变化
-        if (prevPlayers.current.length > 0) {
-            gameState.players.forEach((player, index) => {
-                const prevPlayer = prevPlayers.current.find(p => p.id === player.id);
-                if (prevPlayer) {
-                    // 检测全押
-                    if (player.status === 'all-in' && prevPlayer.status !== 'all-in') {
-                        addMessage({
-                            type: 'allin',
-                            message: `${player.nickname} 全押!`,
-                            duration: 2500
-                        });
-                    }
-                    
-                    // 检测弃牌
-                    if (player.status === 'folded' && prevPlayer.status !== 'folded') {
-                        addMessage({
-                            type: 'fold',
-                            message: `${player.nickname} 弃牌`,
-                            duration: 2000
-                        });
-                    }
-                }
-            });
+  const addMessage = useCallback(({ type, message, duration = 3000 }) => {
+    const id = messageId.current++
+    setMessages((current) => [...current, { id, type, message, duration, show: true }])
+    const timer = window.setTimeout(() => removeMessage(id), duration + 250)
+    removalTimers.current.set(id, timer)
+  }, [removeMessage])
+
+  useEffect(() => {
+    const players = Array.isArray(gameState?.players) ? gameState.players : []
+    if (!players.length) return
+
+    if (previousPlayers.current.length > 0) {
+      players.forEach((player) => {
+        const previousPlayer = previousPlayers.current.find((candidate) => candidate.id === player.id)
+        if (!previousPlayer) return
+        if (player.status === 'all-in' && previousPlayer.status !== 'all-in') {
+          addMessage({ type: 'allin', message: `${player.nickname} 宣布全押`, duration: 2500 })
+        } else if (player.status === 'folded' && previousPlayer.status !== 'folded') {
+          addMessage({ type: 'fold', message: `${player.nickname} 已弃牌`, duration: 2000 })
         }
+      })
+    }
 
-        // 更新上一次的玩家状态
-        prevPlayers.current = gameState.players ? [...gameState.players] : [];
+    previousPlayers.current = players.map((player) => ({ ...player }))
+  }, [gameState, addMessage])
 
-    }, [gameState]);
+  useEffect(() => () => {
+    removalTimers.current.forEach((timer) => window.clearTimeout(timer))
+    removalTimers.current.clear()
+  }, [])
 
-    const addMessage = ({ type, message, duration = 3000 }) => {
-        const id = messageId.current++;
-        const newMessage = {
-            id,
-            type,
-            message,
-            duration,
-            show: true
-        };
-
-        setMessages(prev => [...prev, newMessage]);
-
-        // 自动移除消息
-        setTimeout(() => {
-            setMessages(prev => prev.filter(m => m.id !== id));
-        }, duration + 1000); // 给动画时间
-    };
-
-    const removeMessage = (id) => {
-        setMessages(prev => prev.filter(m => m.id !== id));
-    };
-
-    return {
-        messages,
-        addMessage,
-        removeMessage
-    };
-};
+  return { messages, addMessage, removeMessage }
+}

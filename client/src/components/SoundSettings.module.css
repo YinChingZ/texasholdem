@@ -1,0 +1,34 @@
+.content { display: grid; gap: var(--space-5); }
+.settingRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; }
+.label { min-width: 0; display: flex; align-items: flex-start; gap: 10px; color: var(--color-gold); }
+.label > span { min-width: 0; display: grid; gap: 3px; }
+.label strong { color: var(--color-text); font-size: 14px; }
+.label small { color: var(--color-text-secondary); font-size: 11px; line-height: 1.4; }
+.segmented { display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.segmented button { min-width: 58px; min-height: 40px; padding: 8px 11px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-secondary); box-shadow: none; transform: none; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.segmented button:hover { background: var(--color-ambient); color: var(--color-text); box-shadow: none; transform: none; }
+.segmented button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 1px; }
+.segmented .active { background: var(--color-gold-control); color: var(--color-on-gold); }
+.segmented .active:hover { background: var(--color-gold-control-hover); color: var(--color-on-gold); }
+.volume { display: grid; gap: 10px; padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.volumeHeading { display: flex; justify-content: space-between; gap: 12px; color: var(--color-text); font-size: 13px; font-weight: 650; }
+.volumeHeading output { color: var(--color-gold); font-family: var(--font-mono); }
+.volume input { width: 100%; height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; accent-color: var(--color-gold); cursor: pointer; }
+.volume input:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.samples { display: grid; gap: 10px; padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.sampleHeading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.sampleHeading h3 { margin: 0; color: var(--color-text); font-size: 13px; }
+.sampleHeading span { color: var(--color-text-muted); font-size: 11px; }
+.sampleGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sampleGrid button { min-height: 52px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); box-shadow: none; transform: none; font-size: 11px; letter-spacing: 0; text-transform: none; }
+.sampleGrid button:hover:not(:disabled), .sampleGrid button:focus-visible { border-color: var(--color-gold); background: var(--color-ambient); color: var(--color-text); box-shadow: none; transform: none; }
+.sampleGrid button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 1px; }
+.sampleGrid svg { flex: 0 0 auto; color: var(--color-gold); }
+.disabled { opacity: .5; }
+
+@media (max-width: 430px) {
+  .settingRow { grid-template-columns: 1fr; }
+  .segmented { width: 100%; }
+  .segmented button { min-height: 44px; }
+  .sampleGrid { grid-template-columns: repeat(2, 1fr); }
+}

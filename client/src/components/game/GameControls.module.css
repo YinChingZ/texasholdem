@@ -1,0 +1,12 @@
+.controls { padding: 18px; color: var(--color-text); font-family: var(--font-sans); }
+.controls header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.controls header span { font-size: 12px; font-weight: 750; }
+.controls header small { color: var(--color-text-muted); font: 500 9px/1 var(--font-mono); }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.grid button { min-width: 0; min-height: 44px; justify-content: flex-start; padding: 8px 10px; font-size: 11px; }
+
+@media (max-width: 700px) {
+  .controls { padding: 16px; }
+  .grid { grid-template-columns: 1fr; }
+  .grid button { font-size: 13px; }
+}

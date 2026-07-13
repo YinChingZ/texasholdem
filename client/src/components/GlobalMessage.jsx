@@ -1,93 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import './GlobalMessage.css';
+import { useEffect, useState } from 'react'
+import { CircleDollarSign, LogOut, MessageCircle, Trophy, Zap } from 'lucide-react'
+import styles from './GlobalMessage.module.css'
 
-const GlobalMessage = ({ message, type, show, onComplete, duration = 3000 }) => {
-    const [visible, setVisible] = useState(false);
-    const [animationClass, setAnimationClass] = useState('');
+const messageConfig = {
+  allin: { Icon: Zap, label: '全押', tone: 'danger' },
+  fold: { Icon: LogOut, label: '弃牌', tone: 'neutral' },
+  win: { Icon: Trophy, label: '获胜', tone: 'success' },
+  bet: { Icon: CircleDollarSign, label: '下注', tone: 'gold' },
+  default: { Icon: MessageCircle, label: '牌桌消息', tone: 'neutral' },
+}
 
-    useEffect(() => {
-        if (show && message) {
-            setVisible(true);
-            setAnimationClass('slide-in');
-            
-            // 在动画完成后开始淡出
-            const hideTimer = setTimeout(() => {
-                setAnimationClass('slide-out');
-                
-                // 等待淡出动画完成后隐藏
-                setTimeout(() => {
-                    setVisible(false);
-                    if (onComplete) onComplete();
-                }, 500);
-            }, duration - 500);
+export default function GlobalMessage({ message, type = 'default', show, onComplete, duration = 3000 }) {
+  const [phase, setPhase] = useState(show ? 'entered' : 'hidden')
 
-            return () => clearTimeout(hideTimer);
-        } else {
-            setVisible(false);
-            setAnimationClass('');
-        }
-    }, [show, message, duration, onComplete]);
+  useEffect(() => {
+    if (!show || !message) {
+      setPhase('hidden')
+      return undefined
+    }
 
-    if (!visible) return null;
+    setPhase('entered')
+    const exitDelay = Math.max(0, duration - 200)
+    const exitTimer = window.setTimeout(() => setPhase('exiting'), exitDelay)
+    const completeTimer = window.setTimeout(() => {
+      setPhase('hidden')
+      onComplete?.()
+    }, duration)
 
-    const getMessageConfig = (type) => {
-        switch (type) {
-            case 'allin':
-                return {
-                    icon: '🚀',
-                    text: 'ALL IN!',
-                    className: 'allin',
-                    color: '#dc3545'
-                };
-            case 'fold':
-                return {
-                    icon: '🚫',
-                    text: '弃牌',
-                    className: 'fold',
-                    color: '#6c757d'
-                };
-            case 'win':
-                return {
-                    icon: '🎉',
-                    text: '获胜!',
-                    className: 'win',
-                    color: '#28a745'
-                };
-            case 'bet':
-                return {
-                    icon: '💰',
-                    text: '下注',
-                    className: 'bet',
-                    color: '#ffc107'
-                };
-            default:
-                return {
-                    icon: '💬',
-                    text: message,
-                    className: 'default',
-                    color: '#007bff'
-                };
-        }
-    };
+    return () => {
+      window.clearTimeout(exitTimer)
+      window.clearTimeout(completeTimer)
+    }
+  }, [show, message, duration, onComplete])
 
-    const config = getMessageConfig(type);
+  if (phase === 'hidden') return null
+  const config = messageConfig[type] ?? messageConfig.default
+  const { Icon } = config
 
-    return (
-        <div className={`global-message ${config.className} ${animationClass}`}>
-            <div className="message-content">
-                <span className="message-icon">{config.icon}</span>
-                <span className="message-text">{config.text}</span>
-                {message && message !== config.text && (
-                    <span className="message-detail">{message}</span>
-                )}
-            </div>
-            <div className="message-effects">
-                <div className="sparkle sparkle-1">✨</div>
-                <div className="sparkle sparkle-2">⭐</div>
-                <div className="sparkle sparkle-3">💫</div>
-            </div>
-        </div>
-    );
-};
-
-export default GlobalMessage;
+  return (
+    <div className={`${styles.message} ${styles[config.tone]} ${phase === 'exiting' ? styles.exiting : ''}`} role="status" aria-live="polite">
+      <span className={styles.icon}><Icon size={19} /></span>
+      <span className={styles.copy}><strong>{config.label}</strong><small>{message}</small></span>
+    </div>
+  )
+}

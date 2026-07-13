@@ -1,0 +1,28 @@
+.hud { min-width: 0; display: grid; grid-template-columns: minmax(210px, 260px) minmax(0, 1fr); align-items: center; gap: 20px; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: 0 8px 22px rgba(24, 35, 30, .07); }
+.hero { min-width: 0; display: flex; align-items: center; gap: 12px; padding-right: 18px; border-right: 1px solid var(--color-border); }
+.cards { flex: 0 0 auto; display: flex; gap: 5px; }
+.heroStats { min-width: 0; display: grid; gap: 7px; }
+.heroStats > span { display: grid; gap: 3px; color: var(--color-text-muted); font-size: 9px; }
+.heroStats strong { display: inline-flex; align-items: center; gap: 3px; color: var(--color-text); font: 700 12px/1 var(--font-mono); }
+.spectator { display: flex; align-items: center; gap: 10px; color: var(--color-gold); }
+.spectator span { display: grid; gap: 4px; }
+.spectator strong { color: var(--color-text); font-size: 12px; }
+.spectator small { color: var(--color-text-muted); font-size: 9px; }
+
+@media (max-width: 1180px) {
+  .hud { grid-template-columns: 190px minmax(0, 1fr); }
+  .heroStats > span:last-child { display: none; }
+}
+
+@media (max-width: 760px) {
+  .hud { position: relative; z-index: 10; max-height: calc(100dvh - 86px); grid-template-columns: 1fr; gap: 8px; padding: 8px 10px; overflow-y: auto; overscroll-behavior: contain; border-radius: 10px; }
+  .hero { min-height: 64px; padding-right: 0; padding-bottom: 7px; border-right: 0; border-bottom: 1px solid var(--color-border); }
+  .heroStats { grid-template-columns: repeat(2, auto); gap: 12px; }
+  .heroStats > span:last-child { display: grid; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud { width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; }
+  .hero { min-height: 58px; padding-right: 0; padding-bottom: 6px; border-right: 0; border-bottom: 1px solid var(--color-border); }
+  .heroStats > span:last-child { display: none; }
+}

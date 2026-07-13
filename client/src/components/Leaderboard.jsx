@@ -1,83 +1,55 @@
-import React from 'react';
-import './Leaderboard.css';
+import { Crown, DoorOpen, RotateCcw, Trophy } from 'lucide-react'
+import ModalDialog from './ui/ModalDialog'
+import { Button } from './ui/Primitives'
+import { rankPlayers } from './resultModels'
+import styles from './Leaderboard.module.css'
 
-const Leaderboard = ({ players, isRoomCreator, onNewGame, onLeaveRoom, onCloseRoom, onClose }) => {
-    // Sort players by chips (descending)
-    const sortedPlayers = [...players].sort((a, b) => b.chips - a.chips);
-    
-    return (
-        <div className="leaderboard-overlay">
-            <div className="leaderboard-modal">
-                <button className="leaderboard-close-icon" onClick={onClose} title="关闭">
-                    ✖️
-                </button>
-                <h2>🏆 游戏结束 - 排行榜</h2>
-                
-                <div className="leaderboard-content">
-                    <table className="leaderboard-table">
-                        <thead>
-                            <tr>
-                                <th>排名</th>
-                                <th>玩家</th>
-                                <th>剩余筹码</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedPlayers.map((player, index) => (
-                                <tr key={player.id} className={index === 0 ? 'winner-row' : ''}>
-                                    <td className="rank-cell">
-                                        {index === 0 && <span className="crown">👑</span>}
-                                        #{index + 1}
-                                    </td>
-                                    <td className="player-cell">
-                                        {player.nickname}
-                                        {index === 0 && <span className="winner-badge">冠军</span>}
-                                    </td>
-                                    <td className="chips-cell">
-                                        {player.chips} 筹码
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div className="leaderboard-actions">
-                    {isRoomCreator ? (
-                        <>
-                            <button 
-                                className="leaderboard-btn new-game-btn"
-                                onClick={onNewGame}
-                            >
-                                🔄 新游戏
-                            </button>
-                            <button 
-                                className="leaderboard-btn close-room-btn"
-                                onClick={onCloseRoom}
-                            >
-                                🔒 关闭房间
-                            </button>
-                            <button 
-                                className="leaderboard-btn leave-btn"
-                                onClick={onLeaveRoom}
-                            >
-                                🚪 离开房间
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <button 
-                                className="leaderboard-btn leave-btn"
-                                onClick={onLeaveRoom}
-                            >
-                                🚪 离开房间
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
+export default function Leaderboard({ players, isRoomCreator, onNewGame, onLeaveRoom, onCloseRoom, onClose }) {
+  const sortedPlayers = rankPlayers(players)
+  const totalChips = sortedPlayers.reduce((total, player) => total + (Number(player.chips) || 0), 0)
+  const footer = (
+    <>
+      <Button variant="ghost" onClick={onLeaveRoom}><DoorOpen size={16} />离开房间</Button>
+      {isRoomCreator && <Button variant="danger" onClick={onCloseRoom}>关闭房间</Button>}
+      {isRoomCreator && <Button onClick={onNewGame}><RotateCcw size={16} />开始新游戏</Button>}
+    </>
+  )
+
+  return (
+    <ModalDialog
+      title="最终排行榜"
+      eyebrow="Game complete"
+      description={`${sortedPlayers.length} 位玩家 · 共 ${totalChips.toLocaleString('zh-CN')} 筹码`}
+      closeLabel="关闭排行榜"
+      onClose={onClose}
+      footer={footer}
+    >
+      <div className={styles.summary}>
+        <Trophy size={20} />
+        <div>
+          <span>本局冠军</span>
+          <strong>{sortedPlayers[0]?.nickname ?? '暂无玩家'}</strong>
         </div>
-    );
-};
+        {sortedPlayers[0] && <b>{Number(sortedPlayers[0].chips).toLocaleString('zh-CN')}</b>}
+      </div>
 
-export default Leaderboard;
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <caption className={styles.srOnly}>按剩余筹码从高到低排列的玩家排行榜</caption>
+          <thead>
+            <tr><th scope="col">排名</th><th scope="col">玩家</th><th scope="col">剩余筹码</th></tr>
+          </thead>
+          <tbody>
+            {sortedPlayers.map((player, index) => (
+              <tr key={player.id ?? `${player.nickname}-${index}`} className={index === 0 ? styles.champion : ''}>
+                <td><span className={styles.rank}>{index === 0 && <Crown size={16} />}{index + 1}</span></td>
+                <th scope="row">{player.nickname}</th>
+                <td>{Number(player.chips || 0).toLocaleString('zh-CN')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ModalDialog>
+  )
+}

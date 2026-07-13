@@ -1,0 +1,30 @@
+.header { min-height: 64px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; padding: 10px clamp(120px, 10vw, 156px) 10px clamp(20px, 3vw, 44px); border-bottom: 1px solid var(--color-border); background: var(--color-surface); font-family: var(--font-sans); }
+.brand { color: var(--color-text); font-size: 14px; font-weight: 750; letter-spacing: .04em; }
+.brand span { color: var(--color-text-muted); font-weight: 450; }
+.room { display: flex; align-items: center; gap: 9px; color: var(--color-text-muted); font-size: 10px; }
+.room strong { color: var(--color-gold); font: 750 14px/1 var(--font-mono); letter-spacing: .1em; }
+.room i { width: 1px; height: 14px; background: var(--color-border); }
+.statuses { display: flex; justify-content: flex-end; gap: 6px; }
+.statuses > span { gap: 4px; white-space: nowrap; }
+.mobileTools { display: none; }
+
+@media (max-width: 1024px) {
+  .header { min-height: 60px; grid-template-columns: 1fr auto; padding: 8px max(88px, calc(72px + env(safe-area-inset-right))) 8px max(16px, env(safe-area-inset-left)); }
+  .brand { display: none; }
+  .room { justify-self: start; }
+  .statuses { display: none; }
+  .mobileTools { display: flex; gap: 6px; }
+  .mobileTools button { position: relative; width: 44px; min-width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: transparent; color: var(--color-text-secondary); box-shadow: none; transform: none; }
+  .mobileTools button:hover, .mobileTools button:focus { border-color: var(--color-gold); outline: 2px solid var(--color-gold); outline-offset: 1px; background: transparent; color: var(--color-gold); box-shadow: none; transform: none; }
+  .mobileTools button span { position: absolute; right: -4px; top: -4px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border-radius: 999px; background: var(--color-danger-control); color: var(--color-on-danger); font-size: 9px; }
+}
+
+@media (max-width: 420px) {
+  .header { padding-right: max(64px, calc(56px + env(safe-area-inset-right))); }
+  .room > span:first-child, .room i { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .header { min-height: 48px; height: 48px; padding-top: 2px; padding-bottom: 2px; }
+  .mobileTools button { width: 44px; min-width: 44px; height: 44px; }
+}

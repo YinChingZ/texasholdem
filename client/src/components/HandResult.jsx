@@ -1,338 +1,131 @@
-import React from 'react';
-import Card from './Card';
-import { useSocket } from '../contexts/SocketContext';
-import './HandResult.css';
+import { Crown, Eye, LockKeyhole, Trophy } from 'lucide-react'
+import { useSocket } from '../contexts/socket-context'
+import PokerCard from './game/PokerCard'
+import ModalDialog from './ui/ModalDialog'
+import { Button } from './ui/Primitives'
+import { parseResultCard } from './resultModels'
+import styles from './HandResult.module.css'
 
-// 花色映射
-const suitMap = {
-    'Hearts': '♥',
-    'Diamonds': '♦', 
-    'Clubs': '♣',
-    'Spades': '♠',
-    'H': '♥',
-    'D': '♦',
-    'C': '♣',
-    'S': '♠',
-    'h': '♥',
-    'd': '♦',
-    'c': '♣',
-    's': '♠'
-};
+function CardRow({ cards, compact = false, label }) {
+  const parsed = (Array.isArray(cards) ? cards : []).map(parseResultCard).filter(Boolean)
+  if (!parsed.length) return null
+  return (
+    <div className={styles.cardGroup}>
+      {label && <span className={styles.cardLabel}>{label}</span>}
+      <div className={styles.cards}>
+        {parsed.map((card, index) => <PokerCard key={`${card.rank}-${card.suit}-${index}`} card={card} compact={compact} />)}
+      </div>
+    </div>
+  )
+}
 
-// 转换牌面显示
-const formatCard = (card) => {
-    if (typeof card === 'string') {
-        // 处理 "Ah", "Kd" 格式
-        if (card.length >= 2) {
-            const rank = card.slice(0, -1);
-            const suit = card.slice(-1);
-            return rank + (suitMap[suit] || suit);
-        }
-        return card;
-    }
-    // 处理对象格式
-    if (card && card.rank && card.suit) {
-        return card.rank + (suitMap[card.suit] || card.suit);
-    }
-    return card;
-};
+export default function HandResult({ result, socket, roomId, onClose, gameState, onEndGame }) {
+  const { isRoomCreator } = useSocket()
+  if (!result) return null
 
-const HandResult = ({ result, socket, roomId, onClose, gameState, onEndGame }) => {
-    const { isRoomCreator } = useSocket();
-    
-    if (!result) return null;
+  const winners = Array.isArray(result.winners) ? result.winners : []
+  const playersHands = Array.isArray(result.playersHands) ? result.playersHands : []
+  const rankedPlayers = Array.isArray(result.handComparison?.rankedPlayers) ? result.handComparison.rankedPlayers : []
+  const playersWithChips = gameState?.players?.filter((player) => player.chips > 0).length ?? 0
+  const onlyOnePlayerLeft = playersWithChips <= 1
+  const totalAwarded = winners.reduce((total, winner) => total + (Number(winner.amount) || 0), 0)
 
-    const { winners, communityCards, playersHands, handComparison, showAllHands } = result;
-    
-    // Check how many players have chips remaining
-    const playersWithChips = gameState?.players?.filter(p => p.chips > 0).length || 0;
-    const onlyOnePlayerLeft = playersWithChips <= 1;
-      // 处理不同格式的卡牌数据的辅助函数
-    const parseCardData = (card) => {
-        if (typeof card === 'string') {
-            // 如果是字符串格式，如 "Ah", "Kd"
-            if (card.length >= 2) {
-                const cardRank = card.slice(0, -1);
-                const suitChar = card.slice(-1);
-                
-                // 映射花色字符到完整名称
-                const suitMapping = {
-                    'h': 'Hearts', 'H': 'Hearts',
-                    'd': 'Diamonds', 'D': 'Diamonds', 
-                    'c': 'Clubs', 'C': 'Clubs',
-                    's': 'Spades', 'S': 'Spades'
-                };
-                
-                return {
-                    rank: cardRank,
-                    suit: suitMapping[suitChar] || 'Spades'
-                };
-            }
-        }
-        
-        // 如果已经是对象格式
-        if (card && typeof card === 'object' && card.rank && card.suit) {
-            return {
-                rank: card.rank,
-                suit: card.suit
-            };
-        }
-          // 默认返回
-        return { rank: 'A', suit: 'Spades' };
-    };
-    
-    // 添加调试信息和安全检查
-    console.log('HandResult received data:', {
-        winners,
-        playersHands,
-        handComparison,
-        hasHandComparison: !!handComparison,
-        rankedPlayersCount: handComparison?.rankedPlayers?.length || 0,
-        communityCards
-    });
+  const continueGame = () => {
+    if (socket && roomId) socket.emit('prepareNextHand', { roomId })
+    onClose()
+  }
 
-    // 安全检查数组数据
-    const safeCommunityCards = Array.isArray(communityCards) ? communityCards : [];
-    const safePlayersHands = Array.isArray(playersHands) ? playersHands : [];
-    const safeWinners = Array.isArray(winners) ? winners : [];    const handleContinueGame = () => {
-        // 发送准备下一手的事件
-        console.log('Attempting to continue game with roomId:', roomId);
-        if (socket && roomId) {
-            socket.emit('prepareNextHand', { roomId });
-            console.log('prepareNextHand event sent');
-        } else {
-            console.error('Cannot continue game - missing socket or roomId:', { socket: !!socket, roomId });
-        }
-        // 关闭结算界面
-        onClose();
-    };
+  const endGame = () => {
+    onClose()
+    onEndGame?.()
+  }
 
-    return (
-        <div className="hand-result-overlay">
-            <div className="hand-result-modal compact">
-                <h2>手牌结果</h2>
-                
-                {/* 上半部分：公共牌和获胜者横向布局 */}
-                <div className="result-top-section">                    <div className="community-cards">
-                        <h3>公共牌</h3>                        <div className="cards-display">
-                            {safeCommunityCards.map((card, index) => {
-                                const { suit, rank } = parseCardData(card);
-                                
-                                return (
-                                    <Card
-                                        key={index}
-                                        suit={suit}
-                                        rank={rank}
-                                        isCommunityCard={true}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </div>
+  const footer = isRoomCreator ? (
+    <>
+      <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
+      <Button variant="danger" onClick={endGame}>结束游戏</Button>
+      {!onlyOnePlayerLeft && <Button onClick={continueGame}>开始下一手</Button>}
+    </>
+  ) : (
+    <>
+      <span className={styles.waiting}>等待房主开始下一手</span>
+      <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
+    </>
+  )
 
-                    <div className="winners">
-                        <h3>获胜者</h3>
-                        {safeWinners.map((winner, index) => (
-                            <div key={index} className="winner compact">
-                                🏆 {winner.nickname || `玩家 ${winner.playerId}`} 
-                                {winner.amount && <span className="amount">(+{winner.amount})</span>}
-                                {winner.handDescription && (
-                                    <div className="winner-hand-desc">{winner.handDescription}</div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+  return (
+    <ModalDialog
+      title="本手结算"
+      eyebrow="Showdown"
+      description={totalAwarded ? `本手共结算 ${totalAwarded.toLocaleString('zh-CN')} 筹码` : '本手牌局已经结束'}
+      size="large"
+      closeLabel="关闭本手结算"
+      onClose={onClose}
+      footer={footer}
+    >
+      <div className={styles.layout}>
+        <section className={styles.board} aria-labelledby="result-board-title">
+          <div className={styles.sectionHeading}>
+            <h3 id="result-board-title">公共牌</h3>
+            <span>{result.communityCards?.length ?? 0}/5</span>
+          </div>
+          <CardRow cards={result.communityCards} />
+        </section>
+
+        <section className={styles.winners} aria-labelledby="result-winners-title">
+          <div className={styles.sectionHeading}>
+            <h3 id="result-winners-title"><Trophy size={17} />获胜者</h3>
+            <span>{winners.length} 人</span>
+          </div>
+          <div className={styles.winnerList}>
+            {winners.map((winner, index) => (
+              <article className={styles.winner} key={`${winner.playerId}-${index}`}>
+                <Crown size={19} aria-hidden="true" />
+                <div>
+                  <strong>{winner.nickname || `玩家 ${winner.playerId}`}</strong>
+                  <span>{winner.handDescription || '赢得本手'}</span>
+                  {winner.potLabel && <small>{winner.potLabel}</small>}
                 </div>
+                {winner.amount != null && <b>+{Number(winner.amount).toLocaleString('zh-CN')}</b>}
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
 
-                {/* 中间部分：牌型对比和玩家手牌横向布局 */}
-                <div className="result-middle-section">                    {/* 牌型对比 */}
-                    {showAllHands && handComparison && handComparison.rankedPlayers && handComparison.rankedPlayers.length > 0 && (
-                        <div className="hand-comparison">
-                            <h3>牌型排名</h3>
-                            <div className="ranked-players-grid">
-                                {handComparison.rankedPlayers.map((player, index) => (
-                                    <div 
-                                        key={player.playerId} 
-                                        className={`ranked-player-compact ${index === 0 ? 'winner-rank' : ''}`}
-                                    >
-                                        <span className="rank-badge-small">#{player.rank}</span>
-                                        <div className="player-info-compact">
-                                            <div className="player-name-compact">
-                                                {player.nickname || `玩家 ${player.playerId}`}
-                                                {index === 0 && ' 👑'}
-                                            </div>
-                                            <div className="hand-type-compact">{player.handDescription}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}                    {/* 玩家手牌详情 */}
-                    {safePlayersHands.length > 0 && (
-                        <div className="players-hands">
-                            <h3>手牌详情</h3>
-                            <div className="players-grid">
-                                {safePlayersHands.map((playerHand, index) => (
-                                    <div 
-                                        key={index} 
-                                        className={`player-hand-compact ${playerHand.isWinner ? 'winner-hand' : ''}`}
-                                    >
-                                        <div className="player-header">
-                                            <span className="player-name">
-                                                {playerHand.nickname || `玩家 ${playerHand.playerId}`}
-                                                {playerHand.isWinner && ' 🎉'}
-                                            </span>
-                                            {playerHand.rank && <span className="rank-badge-tiny">#{playerHand.rank}</span>}
-                                        </div>
-                                        
-                                        {playerHand.handDescription && (
-                                            <div className="hand-description-compact">
-                                                {playerHand.handDescription}
-                                            </div>
-                                        )}
-
-                                        <div className="cards-row">
-                                            <div className="hole-cards-inline">
-                                                <span className="cards-label-tiny">底牌:</span>                                                <div className="inline-cards">
-                                                    {playerHand.hand && Array.isArray(playerHand.hand) && playerHand.hand.map((card, cardIndex) => {
-                                                        const processedCard = parseCardData(card);
-                                                        
-                                                        return (
-                                                            <Card
-                                                                key={cardIndex}
-                                                                suit={processedCard.suit}
-                                                                rank={processedCard.rank}
-                                                                isPlayerCard={true}
-                                                            />
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {playerHand.bestCards && Array.isArray(playerHand.bestCards) && playerHand.bestCards.length > 0 && (
-                                                <div className="best-cards-inline">
-                                                    <span className="cards-label-tiny">最佳组合:</span>                                                    <div className="inline-cards">
-                                                        {playerHand.bestCards.slice(0, 5).map((card, cardIndex) => {
-                                                            const processedCard = parseCardData(card);
-                                                            
-                                                            return (
-                                                                <Card
-                                                                    key={cardIndex}
-                                                                    suit={processedCard.suit}
-                                                                    rank={processedCard.rank}
-                                                                    isPlayerCard={true}
-                                                                />
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}</div>                {/* 当手牌被隐藏时的提示 */}
-                {!showAllHands && (
-                    <div style={{
-                        padding: '15px',
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        margin: '20px 0',
-                        color: '#6c757d',
-                        fontSize: '14px'
-                    }}>
-                        🔒 房主设置为仅显示获胜者手牌，其他玩家手牌已隐藏
-                    </div>
-                )}
-
-                {/* 如果没有牌型对比数据，显示调试信息 */}
-                {showAllHands && (!handComparison || !handComparison.rankedPlayers || handComparison.rankedPlayers.length === 0) && (
-                    <div className="debug-info" style={{color: 'yellow', padding: '5px', fontSize: '10px'}}>
-                        调试信息: handComparison = {JSON.stringify(handComparison)}
-                    </div>
-                )}<div className="action-buttons">
-                    {isRoomCreator ? (
-                        <>
-                            {/* If only one player left, show only End Game and View Only */}
-                            {onlyOnePlayerLeft ? (
-                                <>
-                                    <button 
-                                        className="close-result-btn danger"
-                                        onClick={() => {
-                                            onClose();
-                                            if (onEndGame) onEndGame();
-                                        }}
-                                    >
-                                        结束游戏
-                                    </button>
-                                    <button 
-                                        className="close-result-btn secondary"
-                                        onClick={() => {
-                                            console.log('Closing hand result without continuing game');
-                                            onClose();
-                                        }}
-                                    >
-                                        仅查看
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    {/* Normal case: show Continue, End Game, and View Only */}
-                                    <button 
-                                        className="close-result-btn primary"
-                                        onClick={handleContinueGame}
-                                    >
-                                        继续游戏
-                                    </button>
-                                    <button 
-                                        className="close-result-btn danger"
-                                        onClick={() => {
-                                            onClose();
-                                            if (onEndGame) onEndGame();
-                                        }}
-                                    >
-                                        结束游戏
-                                    </button>
-                                    <button 
-                                        className="close-result-btn secondary"
-                                        onClick={() => {
-                                            console.log('Closing hand result without continuing game');
-                                            onClose();
-                                        }}
-                                    >
-                                        仅查看
-                                    </button>
-                                </>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                color: '#6c757d', 
-                                fontSize: '14px',
-                                marginBottom: '10px' 
-                            }}>
-                                等待房主开始下一局...
-                            </div>
-                            <button 
-                                className="close-result-btn secondary"
-                                onClick={() => {
-                                    console.log('Closing hand result without continuing game');
-                                    onClose();
-                                }}
-                            >
-                                仅查看
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
+      {result.showAllHands === false && (
+        <div className={styles.privacyNote} role="note">
+          <LockKeyhole size={17} />
+          <span><strong>其余手牌已隐藏</strong>房主设置为只公开获胜者手牌。</span>
         </div>
-    );
-};
+      )}
 
-export default HandResult;
+      {playersHands.length > 0 && (
+        <section className={styles.hands} aria-labelledby="player-hands-title">
+          <div className={styles.sectionHeading}>
+            <h3 id="player-hands-title"><Eye size={17} />摊牌明细</h3>
+            <span>{playersHands.length} 位玩家</span>
+          </div>
+          <div className={styles.handGrid}>
+            {playersHands.map((playerHand, index) => {
+              const ranking = rankedPlayers.find((player) => player.playerId === playerHand.playerId)
+              return (
+                <article className={`${styles.playerHand} ${playerHand.isWinner ? styles.winningHand : ''}`} key={`${playerHand.playerId}-${index}`}>
+                  <header>
+                    <div>
+                      <strong>{playerHand.nickname || `玩家 ${playerHand.playerId}`}</strong>
+                      <span>{playerHand.handDescription || ranking?.handDescription || '未显示牌型'}</span>
+                    </div>
+                    {(playerHand.rank || ranking?.rank) && <b>#{playerHand.rank || ranking.rank}</b>}
+                  </header>
+                  <CardRow cards={playerHand.hand} compact label="底牌" />
+                  <CardRow cards={playerHand.bestCards?.slice(0, 5)} compact label="最佳组合" />
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      )}
+    </ModalDialog>
+  )
+}

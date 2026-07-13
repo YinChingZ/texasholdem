@@ -1,11 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
-
-const SocketContext = createContext();
-
-export const useSocket = () => {
-    return useContext(SocketContext);
-};
+import { SocketContext } from './socket-context';
 
 // 使用环境变量来决定API URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -27,7 +22,7 @@ export const SocketProvider = ({ children }) => {
     const [hasLeftRoom, setHasLeftRoom] = useState(false); // 新增：标记是否主动退出房间
 
     // 新增：尝试重连的函数
-    const attemptReconnect = () => {
+    const attemptReconnect = useCallback(() => {
         // 如果用户主动退出房间，不尝试重连
         if (hasLeftRoom) {
             console.log('User has left room intentionally, skipping reconnect');
@@ -45,7 +40,7 @@ export const SocketProvider = ({ children }) => {
                 nickname: savedNickname 
             });
         }
-    };
+    }, [hasLeftRoom]);
 
     useEffect(() => {
         socket.on('connect', () => {
@@ -95,7 +90,7 @@ export const SocketProvider = ({ children }) => {
         });
 
         // 新增：处理玩家临时离线
-        socket.on('playerDisconnected', ({ playerId, nickname, temporary }) => {
+        socket.on('playerDisconnected', ({ nickname }) => {
             console.log(`Player ${nickname} temporarily disconnected`);
             setError(`玩家 ${nickname} 暂时离线，等待重连中...`);
             
@@ -266,7 +261,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('gameResetDueToInsufficientPlayers');
             socket.off('error');
         };
-    }, []);    const clearHandResult = () => {
+    }, [attemptReconnect]);    const clearHandResult = () => {
         setHandResult(null);
     };    // 新增：退出房间的函数
     const leaveRoom = () => {

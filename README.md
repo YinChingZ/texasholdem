@@ -9,8 +9,8 @@
 - **会话恢复与重连**: 支持玩家在意外断线后自动重连到原房间，保持游戏连续性。
 - **连接状态监控**: 实时显示连接状态，在网络异常时提供可视化反馈。
 - **灵活的房间管理**: 支持创建、加入和主动退出房间，玩家可以自由控制游戏参与状态。
-- **美观的现代化UI界面**: 使用 React 和 CSS3 精心设计的游戏界面，包含卡牌、筹码、玩家状态等元素。
-- **流畅的动画效果**: 通过CSS动画和React组件状态管理，实现了发牌、下注、收池等过程的流畅视觉效果。
+- **现代牌室双主题**: 提供低饱和牌桌绿、暖金点缀的白天和夜间主题，包含完整的多端牌桌、结算与排行榜界面。
+- **克制且可访问的动效**: 统一状态切换、弹层和消息动效，并支持 `prefers-reduced-motion`。
 - **游戏音效支持**: 为关键游戏事件（如下注、发牌、获胜）配备了音效，提升游戏沉浸感。
 - **实时聊天功能**: 内置聊天框，方便玩家在游戏过程中进行交流。
 - **响应式设计**: 界面适配不同尺寸的屏幕，支持在移动设备上进行游戏。
@@ -77,7 +77,7 @@ graph TD
 
 前端是一个使用 Vite 构建的 React 单页应用 (SPA)。
 
-- **组件化设计**: UI被拆分为一系列可复用的React组件，如 `GameTable`, `Player`, `CommunityCards`, `ActionBar` 等，每个组件负责渲染游戏的一部分。
+- **组件化设计**: `GameTable` 只协调页面状态；欢迎、连接、大厅和游戏由独立 Screen 渲染，牌桌进一步拆分为 `TableStage`、`PlayerSeat`、`CommunityBoard`、`HeroPanel`、`ActionDock` 和 `GameSidebar`。
 - **状态管理**:
     - **`SocketContext.jsx`**: 这是前端状态管理的核心。它通过 React Context API 向整个应用提供一个全局的 `socket` 实例和集中的游戏状态。
     - 所有从服务器接收到的游戏状态 (`gameStateUpdate`) 都会在这里被处理，并更新到全局状态中，从而驱动UI的重新渲染。
@@ -85,7 +85,8 @@ graph TD
 - **自定义 Hooks**:
     - **`useGameSounds`**: 监听 `gameState` 的变化，在特定事件发生时（如轮到玩家行动、有人下注）播放对应的音效。
     - **`useGlobalMessages`**: 监听游戏状态变化，用于显示全局的提示信息（如 "Check", "Raise"）。
-- **`GameTable.jsx`**: 作为顶层UI容器，它根据当前的 `gameState` (例如，是在等待大厅、游戏中还是显示结果) 来动态渲染不同的视图。
+- **`useGameViewModel.js`**: 将 Socket 状态收敛为欢迎、连接、大厅和游戏页面状态，以及当前玩家的权限与行动能力。
+- **`GameTable.jsx`**: 作为轻量页面协调器，保留现有 Socket.IO 事件和数据结构。
 
 ## 📡 通信协议
 
@@ -115,10 +116,12 @@ graph TD
 texasholdem/
 ├── client/          # React前端应用
 │   ├── src/
-│   │   ├── components/  # React组件 (Player, Card, ActionBar...)
+│   │   ├── screens/     # 欢迎、连接、大厅和游戏页面
+│   │   ├── components/  # 游戏、聊天与基础 UI 组件
 │   │   ├── contexts/    # React上下文 (SocketContext)
-│   │   ├── hooks/       # 自定义Hooks (useGameSounds)
-│   │   └── utils/       # 工具函数
+│   │   ├── hooks/       # ViewModel、聊天、音效与消息 Hooks
+│   │   ├── styles/      # 白天/夜间设计令牌
+│   │   └── dev/         # 确定性 UI 预览 fixture
 │   └── public/      # 静态资源
 ├── server/          # Node.js后端服务
 │   ├── index.js     # 服务器入口和Socket.IO事件处理
@@ -180,7 +183,7 @@ docker run -p 3000:3000 texasholdem-server
 - **更丰富的游戏设置**: 允许房主自定义盲注大小、初始筹码、游戏速度等。
 - **锦标赛模式**: 增加淘汰赛或积分赛等更复杂的游戏模式。
 - **AI 玩家**: 实现可以与真人玩家对战的AI机器人。
-- **单元测试与集成测试**: 为 `game.js` 的核心逻辑编写单元测试，确保其稳定性和正确性。
+- **扩展跨浏览器自动化**: 当前以 Chromium 为主，可继续增加 WebKit、Firefox 与真机流水线。
 
 ## 🤝 贡献
 
