@@ -1,11 +1,29 @@
-.card { width: clamp(50px, 4.7vw, 68px); aspect-ratio: .7; display: grid; grid-template-rows: auto 1fr; padding: 6px; border: 1px solid rgba(25, 31, 28, .2); border-radius: var(--radius-md); background: #fffdf8; color: #202521; box-shadow: 0 4px 12px rgba(8, 18, 13, .18); font-family: var(--font-sans); }
-.card > span { display: flex; align-items: baseline; gap: 2px; font-size: clamp(13px, 1.35vw, 18px); font-weight: 750; line-height: 1; }
-.card small { font-size: .78em; }
-.card strong { align-self: center; justify-self: center; font-size: clamp(22px, 2.7vw, 38px); font-weight: 500; line-height: 1; }
-.red { color: #b33f39; }
-.placeholder { border-color: rgba(245, 241, 230, .2); background: rgba(8, 31, 22, .18); box-shadow: inset 0 0 0 1px rgba(245, 241, 230, .04); }
+.card { position: relative; width: clamp(50px, 4.7vw, 68px); aspect-ratio: .7; perspective: 640px; font-family: var(--font-sans); }
+.inner { position: absolute; inset: 0; transform-style: preserve-3d; }
+.face, .back { position: absolute; inset: 0; border: 1px solid rgba(25, 31, 28, .2); border-radius: var(--radius-md); backface-visibility: hidden; box-shadow: 0 4px 12px rgba(8, 18, 13, .18); }
+.face { display: grid; grid-template-rows: auto 1fr; padding: 6px; background: #fffdf8; color: #202521; }
+.face > span { display: flex; align-items: baseline; gap: 2px; font-size: clamp(13px, 1.35vw, 18px); font-weight: 750; line-height: 1; }
+.face small { font-size: .78em; }
+.face strong { align-self: center; justify-self: center; font-size: clamp(22px, 2.7vw, 38px); font-weight: 500; line-height: 1; }
+.back { background: repeating-linear-gradient(135deg, #1d5a43 0 4px, #174a37 4px 8px); border-color: rgba(245, 241, 230, .22); transform: rotateY(180deg); }
+.red .face, .red { color: #b33f39; }
+.placeholder { border: 1px solid rgba(245, 241, 230, .2); border-radius: var(--radius-md); background: rgba(8, 31, 22, .18); box-shadow: inset 0 0 0 1px rgba(245, 241, 230, .04); }
 .compact { width: clamp(44px, 4vw, 56px); }
 
+.flip .inner { animation: cardFlipIn 320ms var(--ease-standard) both; animation-delay: var(--card-delay, 0ms); }
+.deal { animation: cardDealIn 280ms var(--ease-standard) both; animation-delay: var(--card-delay, 0ms); }
+
+@keyframes cardFlipIn {
+  from { transform: rotateY(180deg); }
+  to { transform: rotateY(0deg); }
+}
+
+@keyframes cardDealIn {
+  from { opacity: 0; transform: translateY(14px) rotate(-4deg); }
+  to { opacity: 1; transform: translateY(0) rotate(0deg); }
+}
+
 @media (max-width: 900px) {
-  .card { width: clamp(42px, 10vw, 56px); padding: 5px; }
+  .card { width: clamp(42px, 10vw, 56px); }
+  .face { padding: 5px; }
 }

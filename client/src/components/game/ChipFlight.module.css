@@ -1,0 +1,48 @@
+.flight {
+  position: absolute;
+  left: var(--from-x);
+  top: var(--from-y);
+  z-index: 5;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: chipFly 640ms cubic-bezier(.3, .7, .3, 1) forwards, chipFade 200ms linear 640ms forwards;
+}
+
+.chips { position: relative; width: 26px; height: 18px; }
+.chips i {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px dashed rgba(255, 253, 248, .85);
+  border-radius: 50%;
+  background: var(--color-gold-control);
+  box-shadow: 0 1px 3px rgba(8, 18, 13, .4);
+  transform: translateX(-50%);
+}
+.chips i:nth-child(1) { top: 2px; margin-left: -6px; }
+.chips i:nth-child(2) { top: 2px; margin-left: 6px; }
+.chips i:nth-child(3) { top: -3px; }
+
+.flight small {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(8, 24, 17, .72);
+  color: var(--color-gold);
+  font: 750 9px/1.4 var(--font-mono);
+}
+
+@keyframes chipFly {
+  to { left: var(--to-x); top: var(--to-y); }
+}
+
+@keyframes chipFade {
+  to { opacity: 0; }
+}
+
+@media (max-width: 700px) {
+  .flight { display: none; }
+}

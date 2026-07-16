@@ -3,7 +3,7 @@ import { Badge } from '../ui/Primitives'
 import styles from './GameHeader.module.css'
 
 const phaseCopy = {
-  PREFLOP: '翻牌前', FLOP: '翻牌', TURN: '转牌', RIVER: '河牌', SHOWDOWN: '摊牌', GAME_OVER: '已结束',
+  PREFLOP: '翻牌前', FLOP: '翻牌', TURN: '转牌', RIVER: '河牌', SHOWDOWN: '摊牌', SHOWDOWN_COMPLETE: '本手结束', GAME_OVER: '已结束',
 }
 
 export default function GameHeader({ roomId, gameState, isSpectator, connectionStatus, unreadCount, onOpenChat, onOpenControls }) {

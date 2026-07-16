@@ -38,6 +38,13 @@ const rooms = new Map();
 // 新增：用于存储断开连接的玩家信息，支持重连
 const disconnectedPlayers = new Map(); // playerId -> { roomId, nickname, lastSeen, socketId }
 
+// 牌局节奏：all-in runout 逐街广播间隔、结算结果延迟发送时间。
+// 测试环境可用 PACING_MS=0 关闭延迟（Playwright 等）。
+const PACING_OVERRIDE = Number.parseInt(process.env.PACING_MS ?? '', 10);
+const RUNOUT_STREET_MS = Number.isFinite(PACING_OVERRIDE) ? PACING_OVERRIDE : 600;
+const HAND_RESULT_DELAY_MS = Number.isFinite(PACING_OVERRIDE) ? PACING_OVERRIDE * 2 : 1200;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const generateRoomId = () => {
     return Math.random().toString(36).substr(2, 6);
 }
@@ -416,7 +423,7 @@ io.on('connection', (socket) => {
     broadcastGameState(roomId);
   });
 
-  socket.on('playerAction', ({ roomId, action, betAmount }) => {
+  socket.on('playerAction', async ({ roomId, action, betAmount }) => {
     const room = rooms.get(roomId);
     if (!room || !room.game) {
         return socket.emit('error', { message: '房间不存在' });
@@ -428,8 +435,23 @@ io.on('connection', (socket) => {
         return socket.emit('error', { message: '游戏尚未开始或已结束' });
     }
       try {
-        const result = room.game.playerAction(socket.id, action, betAmount);
-        
+        let result = room.game.playerAction(socket.id, action, betAmount);
+
+        // all-in runout：逐街推进并广播，所有客户端同步看到发牌节奏
+        if (result && result.runout) {
+            const game = room.game;
+            broadcastGameState(roomId); // 先广播已推进到的第一条街
+            while (result && result.runout) {
+                await sleep(RUNOUT_STREET_MS);
+                // 延迟期间房间可能被关闭 / 牌局被重置
+                if (rooms.get(roomId) !== room || room.game !== game) return;
+                result = game.advanceRunoutStreet();
+                if (result && result.runout) {
+                    broadcastGameState(roomId);
+                }
+            }
+        }
+
         // 检查是否有手牌结果
         if (result && result.handResult) {
             // 确保房间有设置
@@ -467,7 +489,7 @@ io.on('connection', (socket) => {
                 ...(shouldShowAllHands ? otherPlayersHands : [])  // 其他玩家手牌根据设置显示
             ];
             
-            io.to(roomId).emit('handResult', { 
+            const handResultPayload = {
                 winners: result.winners.map(winner => ({
                     playerId: winner.playerId,
                     nickname: winner.nickname || room.players[winner.playerId]?.nickname || `Player ${winner.playerId}`,
@@ -480,7 +502,21 @@ io.on('connection', (socket) => {
                 playersHands: finalPlayersHands,
                 handComparison: shouldShowAllHands ? result.handComparison : null,
                 showAllHands: shouldShowAllHands
-            });
+            };
+
+            // 延迟发送结算结果，给客户端时间播放最后的动作 / 河牌动画。
+            // 守卫：房间被关闭、牌局被重置或已手动开始下一手时取消发送。
+            const game = room.game;
+            if (room.pendingHandResultTimer) {
+                clearTimeout(room.pendingHandResultTimer);
+            }
+            room.pendingHandResultTimer = setTimeout(() => {
+                room.pendingHandResultTimer = null;
+                if (rooms.get(roomId) === room && room.game === game
+                    && game.gameState === 'SHOWDOWN_COMPLETE') {
+                    io.to(roomId).emit('handResult', handResultPayload);
+                }
+            }, HAND_RESULT_DELAY_MS);
               
             // 注释掉自动准备下一手的机制，改为手动触发
             // setTimeout(() => {

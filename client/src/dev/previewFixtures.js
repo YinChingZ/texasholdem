@@ -107,6 +107,119 @@ const handResults = {
   },
 }
 
+// 脚本化演示序列：按帧步进 gameState，驱动排程器播放完整一手牌的
+// 音效与动画（加注/跟注/弃牌气泡、翻牌、全押 runout、派彩、结算弹窗）。
+// 用法：?uiPreview=game-demo
+const demoPlayers = (patches = {}) => [
+  { id: 'player-1', nickname: '河牌猎手', chips: 1240, currentBet: 0, status: 'in-game', hand: [] },
+  { id: 'player-2', nickname: '北岸', chips: 860, currentBet: 0, status: 'in-game', hand: [] },
+  { id: 'player-3', nickname: '慢打', chips: 1020, currentBet: 0, status: 'in-game', hand: [] },
+  { id: 'player-4', nickname: '灯塔', chips: 880, currentBet: 0, status: 'in-game', hand: [] },
+].map((player) => (patches[player.id] ? { ...player, ...patches[player.id] } : player))
+
+const demoFrame = (patch, playerPatches) => ({
+  ...baseGame,
+  gameState: 'PREFLOP',
+  communityCards: [],
+  mainPot: 30,
+  currentBet: 20,
+  players: demoPlayers(playerPatches),
+  ...patch,
+})
+
+export const demoScript = [
+  // 盲注就位，等待 player-4 行动
+  { holdMs: 1600, gameState: demoFrame({ currentPlayerTurn: 'player-4' }, {
+    'player-2': { chips: 850, currentBet: 10 },
+    'player-3': { chips: 1000, currentBet: 20 },
+  }) },
+  // player-4 加注到 60
+  { holdMs: 1800, gameState: demoFrame({ currentPlayerTurn: 'player-1', currentBet: 60, mainPot: 90 }, {
+    'player-2': { chips: 850, currentBet: 10 },
+    'player-3': { chips: 1000, currentBet: 20 },
+    'player-4': { chips: 820, currentBet: 60 },
+  }) },
+  // 英雄跟注
+  { holdMs: 1600, gameState: demoFrame({ currentPlayerTurn: 'player-2', currentBet: 60, mainPot: 150 }, {
+    'player-1': { chips: 1180, currentBet: 60 },
+    'player-2': { chips: 850, currentBet: 10 },
+    'player-3': { chips: 1000, currentBet: 20 },
+    'player-4': { chips: 820, currentBet: 60 },
+  }) },
+  // player-2 弃牌
+  { holdMs: 1500, gameState: demoFrame({ currentPlayerTurn: 'player-3', currentBet: 60, mainPot: 150 }, {
+    'player-1': { chips: 1180, currentBet: 60 },
+    'player-2': { chips: 850, currentBet: 10, status: 'folded' },
+    'player-3': { chips: 1000, currentBet: 20 },
+    'player-4': { chips: 820, currentBet: 60 },
+  }) },
+  // player-3 补齐跟注 → 翻牌（下注清零、发3张公共牌）
+  { holdMs: 2400, gameState: demoFrame({
+    gameState: 'FLOP', currentPlayerTurn: 'player-3', currentBet: 0, mainPot: 190,
+    communityCards: communityCards.slice(0, 3),
+  }, {
+    'player-1': { chips: 1180 },
+    'player-2': { chips: 850, status: 'folded' },
+    'player-3': { chips: 960 },
+    'player-4': { chips: 820 },
+  }) },
+  // player-3 过牌
+  { holdMs: 1500, gameState: demoFrame({
+    gameState: 'FLOP', currentPlayerTurn: 'player-4', currentBet: 0, mainPot: 190,
+    communityCards: communityCards.slice(0, 3),
+  }, {
+    'player-1': { chips: 1180 },
+    'player-2': { chips: 850, status: 'folded' },
+    'player-3': { chips: 960 },
+    'player-4': { chips: 820 },
+  }) },
+  // player-4 下注 80
+  { holdMs: 1800, gameState: demoFrame({
+    gameState: 'FLOP', currentPlayerTurn: 'player-1', currentBet: 80, mainPot: 270,
+    communityCards: communityCards.slice(0, 3),
+  }, {
+    'player-1': { chips: 1180 },
+    'player-2': { chips: 850, status: 'folded' },
+    'player-3': { chips: 960 },
+    'player-4': { chips: 740, currentBet: 80 },
+  }) },
+  // 英雄全押
+  { holdMs: 2000, gameState: demoFrame({
+    gameState: 'FLOP', currentPlayerTurn: 'player-4', currentBet: 1180, mainPot: 1450,
+    communityCards: communityCards.slice(0, 3),
+  }, {
+    'player-1': { chips: 0, currentBet: 1180, status: 'all-in' },
+    'player-2': { chips: 850, status: 'folded' },
+    'player-3': { chips: 960, status: 'folded' },
+    'player-4': { chips: 740, currentBet: 80 },
+  }) },
+  // player-4 跟注全押 → runout 到河牌
+  { holdMs: 2600, gameState: demoFrame({
+    gameState: 'RIVER', currentPlayerTurn: null, currentBet: 0, mainPot: 2190,
+    communityCards,
+  }, {
+    'player-1': { chips: 0, currentBet: 1180, status: 'all-in' },
+    'player-2': { chips: 850, status: 'folded' },
+    'player-3': { chips: 960, status: 'folded' },
+    'player-4': { chips: 0, currentBet: 820, status: 'all-in' },
+  }) },
+  // 结算：清场快照 + handResult
+  { holdMs: 60000, gameState: demoFrame({
+    gameState: 'SHOWDOWN_COMPLETE', currentPlayerTurn: null, currentBet: 0, mainPot: 0,
+  }, {
+    'player-1': { chips: 2190 },
+    'player-2': { chips: 850 },
+    'player-3': { chips: 960 },
+    'player-4': { chips: 0, status: 'out-of-chips' },
+  }), handResult: {
+    winners: [{ playerId: 'player-1', nickname: '河牌猎手', amount: 2190, handDescription: '两对，A 和 10' }],
+    communityCards: ['Ah', 'Ts', '7c', 'Kd', '2h'],
+    playersHands: resultHands,
+    handComparison,
+    showAllHands: true,
+  } },
+]
+
 function createSocket(id = 'player-1') {
   return {
     id,
@@ -145,6 +258,7 @@ export const previewStateNames = [
   'result-last-player',
   'leaderboard',
   'message-allin',
+  'game-demo',
 ]
 
 export function createPreviewValue(state) {
@@ -169,7 +283,8 @@ export function createPreviewValue(state) {
       'game-showdown': communityCards,
       result: communityCards,
     }
-    const phase = resultPreview ? 'SHOWDOWN' : ({
+    // 与真实服务器一致：handResult 到达时牌局已是 SHOWDOWN_COMPLETE（结算后广播）
+    const phase = resultPreview ? 'SHOWDOWN_COMPLETE' : ({
       'game-preflop': 'PREFLOP',
       'game-turn-phase': 'TURN',
       'game-river': 'RIVER',

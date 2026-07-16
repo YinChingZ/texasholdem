@@ -1,273 +1,201 @@
-// 音效管理工具
-export class SoundManager {
-    constructor() {
-        this.audioContext = null;
-        this.sounds = {};
-        this.enabled = true;
-        this.volume = 0.3;        this.lastPlayTime = {}; // 防抖机制：记录上次播放时间
-        this.minInterval = 50; // 最小播放间隔（毫秒），减少到50ms
-        
-        // 初始化音频上下文
-        this.initAudioContext();
-    }    initAudioContext() {
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('Audio context created:', this.audioContext.state);
-            
-            // 现代浏览器需要用户交互才能启用音频
-            if (this.audioContext.state === 'suspended') {
-                console.log('Audio context suspended, will resume on user interaction');
-                // 添加一次性事件监听器来恢复音频上下文
-                const resumeAudio = () => {
-                    this.audioContext.resume().then(() => {
-                        console.log('Audio context resumed');
-                    });
-                    document.removeEventListener('click', resumeAudio);
-                    document.removeEventListener('keydown', resumeAudio);
-                };
-                document.addEventListener('click', resumeAudio);
-                document.addEventListener('keydown', resumeAudio);
-            }
-        } catch (e) {
-            console.warn('Web Audio API not supported:', e);
-            this.enabled = false;
-        }
-    }
+// 音效管理器：基于真实采样（CC0，见 public/sounds/LICENSE.md）的 Web Audio 播放引擎。
+// 首次用户手势时创建 AudioContext 并预载全部采样。
 
-    // 防抖检查
-    canPlaySound(soundType) {
-        const now = Date.now();
-        const lastTime = this.lastPlayTime[soundType] || 0;
-        
-        if (now - lastTime < this.minInterval) {
-            return false;
-        }
-        
-        this.lastPlayTime[soundType] = now;
-        return true;
-    }    // 创建音效（使用Web Audio API生成）
-    createSound(frequency, duration, type = 'sine') {
-        if (!this.audioContext || !this.enabled) {
-            console.log('Cannot create sound: audioContext missing or disabled');
-            return null;
-        }
-
-        if (this.audioContext.state === 'suspended') {
-            console.log('Audio context suspended, attempting to resume');
-            this.audioContext.resume();
-        }
-
-        try {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            oscillator.type = type;
-            
-            gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(this.volume, this.audioContext.currentTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-            
-            console.log('Sound created successfully:', { frequency, duration, type, volume: this.volume });
-            return { oscillator, gainNode };
-        } catch (e) {
-            console.error('Error creating sound:', e);
-            return null;
-        }
-    }// 播放筹码增加音效
-    playChipGain() {
-        if (!this.enabled || !this.canPlaySound('chipGain')) return;
-        
-        const sound = this.createSound(800, 0.3, 'triangle');
-        if (sound) {
-            sound.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound.gainNode.gain.linearRampToValueAtTime(this.volume * 0.5, this.audioContext.currentTime + 0.01);
-            sound.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
-            
-            sound.oscillator.start();
-            sound.oscillator.stop(this.audioContext.currentTime + 0.3);
-            
-            // 添加和声
-            setTimeout(() => {
-                const harmony = this.createSound(1200, 0.2, 'triangle');
-                if (harmony) {
-                    harmony.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                    harmony.gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, this.audioContext.currentTime + 0.01);
-                    harmony.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.2);
-                    
-                    harmony.oscillator.start();
-                    harmony.oscillator.stop(this.audioContext.currentTime + 0.2);
-                }
-            }, 100);
-        }
-    }    // 播放筹码减少音效
-    playChipLoss() {
-        if (!this.enabled || !this.canPlaySound('chipLoss')) return;
-        
-        const sound = this.createSound(300, 0.4, 'sawtooth');
-        if (sound) {
-            sound.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound.gainNode.gain.linearRampToValueAtTime(this.volume * 0.4, this.audioContext.currentTime + 0.01);
-            sound.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.4);
-            
-            sound.oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.4);
-            sound.oscillator.start();
-            sound.oscillator.stop(this.audioContext.currentTime + 0.4);
-        }
-    }    // 播放奖池增加音效
-    playPotIncrease() {
-        if (!this.enabled || !this.canPlaySound('potIncrease')) return;
-        
-        const sound = this.createSound(600, 0.5, 'square');
-        if (sound) {
-            sound.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound.gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, this.audioContext.currentTime + 0.01);
-            sound.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.5);
-            
-            sound.oscillator.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.5);
-            sound.oscillator.start();
-            sound.oscillator.stop(this.audioContext.currentTime + 0.5);
-        }
-    }    // 播放下注音效（根据金额调整音调和持续时间）
-    playBet(amount = 0) {
-        if (!this.enabled || !this.canPlaySound('bet')) return;
-        
-        // 根据下注金额调整音效参数
-        let frequency = 440; // 基础频率
-        let duration = 0.2;  // 基础持续时间
-        let oscillatorType = 'triangle';
-        
-        if (amount > 0) {
-            // 小额下注 (1-50)
-            if (amount <= 50) {
-                frequency = 440;
-                duration = 0.15;
-                oscillatorType = 'triangle';
-            }
-            // 中等下注 (51-200)
-            else if (amount <= 200) {
-                frequency = 550;
-                duration = 0.25;
-                oscillatorType = 'square';
-            }
-            // 大额下注 (201-500)
-            else if (amount <= 500) {
-                frequency = 660;
-                duration = 0.35;
-                oscillatorType = 'sawtooth';
-            }
-            // 巨额下注 (500+)
-            else {
-                frequency = 880;
-                duration = 0.5;
-                oscillatorType = 'square';
-                // 添加和弦效果
-                setTimeout(() => {
-                    const harmony = this.createSound(frequency * 1.5, duration * 0.6, 'triangle');
-                    if (harmony) {
-                        harmony.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                        harmony.gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, this.audioContext.currentTime + 0.01);
-                        harmony.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration * 0.6);
-                        
-                        harmony.oscillator.start();
-                        harmony.oscillator.stop(this.audioContext.currentTime + duration * 0.6);
-                    }
-                }, 50);
-            }
-        }
-        
-        const sound = this.createSound(frequency, duration, oscillatorType);
-        if (sound) {
-            sound.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound.gainNode.gain.linearRampToValueAtTime(this.volume * 0.6, this.audioContext.currentTime + 0.01);
-            sound.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-            
-            sound.oscillator.start();
-            sound.oscillator.stop(this.audioContext.currentTime + duration);
-        }
-    }    // 播放翻牌音效
-    playCardFlip() {
-        console.log('playCardFlip called, enabled:', this.enabled);
-        if (!this.enabled || !this.canPlaySound('cardFlip')) {
-            console.log('Card flip sound blocked by settings or debounce');
-            return;
-        }
-        
-        console.log('Playing card flip sound');
-        const sound = this.createSound(880, 0.15, 'square');
-        if (sound) {
-            sound.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound.gainNode.gain.linearRampToValueAtTime(this.volume * 0.4, this.audioContext.currentTime + 0.01);
-            sound.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.15);
-            
-            // 添加快速频率变化模拟翻牌声
-            sound.oscillator.frequency.exponentialRampToValueAtTime(1100, this.audioContext.currentTime + 0.05);
-            sound.oscillator.frequency.exponentialRampToValueAtTime(700, this.audioContext.currentTime + 0.15);
-            
-            sound.oscillator.start();
-            sound.oscillator.stop(this.audioContext.currentTime + 0.15);
-            console.log('Card flip sound started');
-        } else {
-            console.log('Failed to create card flip sound');
-        }
-    }    // 播放全押音效
-    playAllIn() {
-        console.log('playAllIn called, enabled:', this.enabled);
-        if (!this.enabled || !this.canPlaySound('allIn')) {
-            console.log('All-in sound blocked by settings or debounce');
-            return;
-        }
-        
-        console.log('Playing all-in sound');
-        // 创建戏剧性的全押音效
-        const sound1 = this.createSound(220, 0.6, 'sawtooth');
-        if (sound1) {
-            sound1.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-            sound1.gainNode.gain.linearRampToValueAtTime(this.volume * 0.7, this.audioContext.currentTime + 0.1);
-            sound1.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.6);
-            
-            sound1.oscillator.frequency.exponentialRampToValueAtTime(440, this.audioContext.currentTime + 0.6);
-            sound1.oscillator.start();
-            sound1.oscillator.stop(this.audioContext.currentTime + 0.6);
-            console.log('All-in base sound started');
-        }
-
-        // 添加高音装饰音
-        setTimeout(() => {
-            const sound2 = this.createSound(1760, 0.3, 'triangle');
-            if (sound2) {
-                sound2.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-                sound2.gainNode.gain.linearRampToValueAtTime(this.volume * 0.5, this.audioContext.currentTime + 0.01);
-                sound2.gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
-                
-                sound2.oscillator.start();
-                sound2.oscillator.stop(this.audioContext.currentTime + 0.3);
-                console.log('All-in decoration sound started');
-            }
-        }, 200);
-    }// 设置音量
-    setVolume(volume) {
-        this.volume = Math.max(0, Math.min(1, volume));
-        console.log('Sound volume set to:', this.volume);
-    }
-
-    // 启用/禁用音效
-    setEnabled(enabled) {
-        this.enabled = enabled;
-        console.log('Sound enabled:', this.enabled);
-    }
-
-    // 获取当前设置
-    getSettings() {
-        return {
-            enabled: this.enabled,
-            volume: this.volume
-        };
-    }
+const SOUND_FILES = {
+  dealCard: ['deal-1.m4a', 'deal-2.m4a'],
+  flipCard: ['flip-1.m4a', 'flip-2.m4a'],
+  fold: ['fold.m4a'],
+  check: ['check.m4a'],
+  betSmall: ['bet-small-1.m4a', 'bet-small-2.m4a'],
+  betLarge: ['bet-large.m4a'],
+  allIn: ['all-in-1.m4a'],
+  allInLayer: ['all-in-2.m4a'],
+  potCollect: ['pot-collect.m4a'],
+  win: ['win.m4a'],
+  yourTurn: ['your-turn.m4a'],
+  click: ['click.m4a'],
 }
 
-// 创建全局音效管理器实例
-export const soundManager = new SoundManager();
+const SOUND_BASE_PATH = '/sounds/'
+const STORAGE_ENABLED = 'soundEnabled'
+const STORAGE_VOLUME = 'soundVolume'
+
+function readStoredSettings() {
+  const settings = { enabled: true, volume: 0.5 }
+  try {
+    const storedEnabled = localStorage.getItem(STORAGE_ENABLED)
+    if (storedEnabled !== null) settings.enabled = storedEnabled === 'true'
+    const storedVolume = Number.parseFloat(localStorage.getItem(STORAGE_VOLUME))
+    if (Number.isFinite(storedVolume)) settings.volume = Math.min(1, Math.max(0, storedVolume))
+  } catch {
+    // localStorage 不可用（隐私模式/测试环境）时使用默认值
+  }
+  return settings
+}
+
+export class SoundManager {
+  constructor() {
+    const { enabled, volume } = readStoredSettings()
+    this.enabled = enabled
+    this.volume = volume
+    this.audioContext = null
+    this.masterGain = null
+    this.buffers = new Map()
+    this.loadPromise = null
+    this.lastPlayTime = {}
+    this.attachGestureListeners()
+  }
+
+  attachGestureListeners() {
+    if (typeof document === 'undefined') return
+    const unlock = () => {
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('keydown', unlock)
+      document.removeEventListener('touchstart', unlock)
+      this.ensureContext()
+      this.loadAll()
+    }
+    document.addEventListener('click', unlock)
+    document.addEventListener('keydown', unlock)
+    document.addEventListener('touchstart', unlock)
+  }
+
+  ensureContext() {
+    if (this.audioContext) {
+      if (this.audioContext.state === 'suspended') this.audioContext.resume().catch(() => {})
+      return this.audioContext
+    }
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext
+      this.audioContext = new Ctx()
+      this.masterGain = this.audioContext.createGain()
+      this.masterGain.gain.value = this.volume
+      this.masterGain.connect(this.audioContext.destination)
+    } catch {
+      this.enabled = false
+    }
+    return this.audioContext
+  }
+
+  loadAll() {
+    if (this.loadPromise || !this.audioContext) return this.loadPromise
+    const entries = Object.entries(SOUND_FILES).flatMap(([name, files]) =>
+      files.map((file, index) => ({ key: `${name}:${index}`, file })))
+    this.loadPromise = Promise.all(entries.map(async ({ key, file }) => {
+      try {
+        const response = await fetch(`${SOUND_BASE_PATH}${file}`)
+        if (!response.ok) return
+        const arrayBuffer = await response.arrayBuffer()
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
+        this.buffers.set(key, audioBuffer)
+      } catch {
+        // 单个采样加载失败时静默降级：对应音效不播放
+      }
+    }))
+    return this.loadPromise
+  }
+
+  canPlaySound(name, throttleMs) {
+    const now = Date.now()
+    if (now - (this.lastPlayTime[name] || 0) < throttleMs) return false
+    this.lastPlayTime[name] = now
+    return true
+  }
+
+  pickBuffer(name) {
+    const variants = SOUND_FILES[name]
+    if (!variants) return null
+    const index = variants.length > 1 ? Math.floor(Math.random() * variants.length) : 0
+    return this.buffers.get(`${name}:${index}`) ?? this.buffers.get(`${name}:0`) ?? null
+  }
+
+  play(name, { volume = 1, rate = 1, delayMs = 0, throttleMs = 60 } = {}) {
+    if (!this.enabled) return
+    if (!this.canPlaySound(name, throttleMs)) return
+    const context = this.ensureContext()
+    if (!context) return
+    this.loadAll()
+    const buffer = this.pickBuffer(name)
+    if (!buffer) return
+    try {
+      const source = context.createBufferSource()
+      source.buffer = buffer
+      source.playbackRate.value = rate
+      const gain = context.createGain()
+      gain.gain.value = volume
+      source.connect(gain)
+      gain.connect(this.masterGain)
+      source.start(context.currentTime + delayMs / 1000)
+    } catch {
+      // 播放失败静默忽略
+    }
+  }
+
+  // ——— 游戏事件语义封装 ———
+
+  playDeal() {
+    this.play('dealCard', { throttleMs: 90 })
+  }
+
+  playCardFlip() {
+    this.play('flipCard', { throttleMs: 120 })
+  }
+
+  playFold() {
+    this.play('fold')
+  }
+
+  playCheck() {
+    // 低速率播放让纸牌落桌声更接近叩桌
+    this.play('check', { rate: 0.82 })
+  }
+
+  playBet(amount = 0, potSize = 0) {
+    const isLarge = potSize > 0 ? amount >= potSize * 0.6 : amount > 200
+    this.play(isLarge ? 'betLarge' : 'betSmall')
+  }
+
+  playAllIn() {
+    this.play('allIn', { volume: 0.9 })
+    this.play('allInLayer', { delayMs: 90 })
+  }
+
+  playPotCollect() {
+    this.play('potCollect')
+  }
+
+  playWin() {
+    this.play('win', { volume: 0.8, throttleMs: 500 })
+  }
+
+  playYourTurn() {
+    this.play('yourTurn', { volume: 0.7, throttleMs: 1000 })
+  }
+
+  playClick() {
+    this.play('click', { volume: 0.6, throttleMs: 40 })
+  }
+
+  // ——— 设置 ———
+
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, volume))
+    if (this.masterGain) this.masterGain.gain.value = this.volume
+    try {
+      localStorage.setItem(STORAGE_VOLUME, String(this.volume))
+    } catch { /* 忽略 */ }
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled
+    try {
+      localStorage.setItem(STORAGE_ENABLED, String(enabled))
+    } catch { /* 忽略 */ }
+  }
+
+  getSettings() {
+    return { enabled: this.enabled, volume: this.volume }
+  }
+}
+
+export const soundManager = new SoundManager()

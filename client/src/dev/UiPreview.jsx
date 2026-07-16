@@ -1,9 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GameTable from '../components/GameTable'
 import GlobalMessage from '../components/GlobalMessage'
 import { SocketContext } from '../contexts/socket-context'
-import { createPreviewValue, previewStateNames } from './previewFixtures'
+import { createPreviewValue, demoScript, previewStateNames } from './previewFixtures'
 import styles from './UiPreview.module.css'
+
+// 脚本化演示：按帧步进 gameState，完整播放一手牌的动画与音效节奏
+function DemoPreview() {
+  const [step, setStep] = useState(0)
+  const frame = demoScript[Math.min(step, demoScript.length - 1)]
+
+  useEffect(() => {
+    if (step >= demoScript.length - 1) return undefined
+    const timer = window.setTimeout(() => setStep((current) => current + 1), frame.holdMs ?? 1800)
+    return () => window.clearTimeout(timer)
+  }, [step, frame.holdMs])
+
+  const value = {
+    ...createPreviewValue('game-turn'),
+    gameState: frame.gameState,
+    handResult: frame.handResult ?? null,
+  }
+  return (
+    <SocketContext.Provider value={value}>
+      <GameTable />
+    </SocketContext.Provider>
+  )
+}
 
 export default function UiPreview({ state }) {
   const baseValue = createPreviewValue(state)
@@ -21,6 +44,10 @@ export default function UiPreview({ state }) {
         </nav>
       </main>
     )
+  }
+
+  if (state === 'game-demo') {
+    return <DemoPreview />
   }
 
   if (state === 'message-allin') {

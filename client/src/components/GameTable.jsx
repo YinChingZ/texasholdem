@@ -6,9 +6,9 @@ import SoundSettings from './SoundSettings'
 import { ConfirmDialog } from './ui/Primitives'
 import { useSocket } from '../contexts/socket-context'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { useGameSounds } from '../hooks/useGameSounds'
 import { useGameViewModel } from '../hooks/useGameViewModel'
 import { useGlobalMessages } from '../hooks/useGlobalMessages'
+import { useTableSequencer } from '../hooks/useTableSequencer'
 import ConnectionScreen from '../screens/ConnectionScreen'
 import GameScreen from '../screens/GameScreen'
 import LobbyScreen from '../screens/LobbyScreen'
@@ -29,30 +29,31 @@ export default function GameTable() {
     isReconnecting,
     leaveRoom,
     attemptReconnect,
+    notices,
+    dismissNotice,
   } = useSocket()
 
   const [nickname, setNickname] = useState('')
   const [roomIdInput, setRoomIdInput] = useState('')
   const [showSoundSettings, setShowSoundSettings] = useState(false)
-  const [previousGameState, setPreviousGameState] = useState(null)
   const [copySuccess, setCopySuccess] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showAllHands, setShowAllHands] = useState(true)
   const [initialChips, setInitialChips] = useState(1000)
   const [spectatorRoomId, setSpectatorRoomId] = useState(null)
 
-  useGameSounds(gameState, previousGameState)
-  const { messages, removeMessage } = useGlobalMessages(gameState, previousGameState)
+  const { displayState, displayHandResult, seatEvents, boardReveal, potFlights, revealedHands } = useTableSequencer({
+    gameState,
+    handResult,
+    heroId: socket?.id,
+  })
+  const { messages, removeMessage } = useGlobalMessages(displayState)
   useDocumentTitle(gameState, socket?.id)
 
   useEffect(() => {
     const savedNickname = localStorage.getItem('texasholdem_nickname')
     if (savedNickname) setNickname(savedNickname)
   }, [])
-
-  useEffect(() => {
-    if (gameState) setPreviousGameState(gameState)
-  }, [gameState])
 
   useEffect(() => {
     if (gameState?.gameState === 'GAME_OVER' && gameState.leaderboard) setShowLeaderboard(true)
@@ -139,7 +140,18 @@ export default function GameTable() {
     />
   )
 
-  const withSpectatorDialog = (screen) => <>{screen}{spectatorDialog}</>
+  const noticeToasts = (notices ?? []).map((notice) => (
+    <GlobalMessage
+      key={`notice-${notice.id}`}
+      type="default"
+      message={notice.message}
+      show
+      duration={3200}
+      onComplete={() => dismissNotice(notice.id)}
+    />
+  ))
+
+  const withSpectatorDialog = (screen) => <>{screen}{spectatorDialog}{noticeToasts}</>
 
   if (viewModel.screen === 'welcome') {
     return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={setNickname} onRoomIdChange={setRoomIdInput} onCreateRoom={createRoom} onJoinRoom={joinRoom} />)
@@ -179,6 +191,11 @@ export default function GameTable() {
       <GameScreen
         room={room}
         gameState={gameState}
+        displayState={displayState ?? gameState}
+        seatEvents={seatEvents}
+        boardReveal={boardReveal}
+        potFlights={potFlights}
+        revealedHands={revealedHands}
         privateCards={privateCards}
         currentUserId={socket?.id}
         isRoomCreator={isRoomCreator}
@@ -193,9 +210,9 @@ export default function GameTable() {
         onSoundSettings={() => setShowSoundSettings(true)}
       />
 
-      {handResult && (
+      {displayHandResult && (
         <HandResult
-          result={handResult}
+          result={displayHandResult}
           socket={socket}
           roomId={room.id}
           gameState={gameState}
@@ -217,6 +234,7 @@ export default function GameTable() {
       {messages.map((message) => (
         <GlobalMessage key={message.id} type={message.type} message={message.message} show={message.show} duration={message.duration} onComplete={() => removeMessage(message.id)} />
       ))}
+      {noticeToasts}
       {spectatorDialog}
     </>
   )

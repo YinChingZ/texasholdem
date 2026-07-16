@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, CircleDollarSign } from 'lucide-react'
+import { soundManager } from '../../utils/soundManager'
 import { deriveActionState, getQuickRaiseOptions } from './gameState'
 import styles from './ActionDock.module.css'
 
@@ -8,6 +9,11 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
   const [raiseOpen, setRaiseOpen] = useState(false)
   const [raiseAmount, setRaiseAmount] = useState(actionState.minRaiseAmount)
   const quickOptions = getQuickRaiseOptions(actionState, gameState?.mainPot ?? 0)
+
+  const act = (action, amount) => {
+    soundManager.playClick()
+    onAction(action, amount)
+  }
 
   useEffect(() => {
     setRaiseAmount(Math.min(actionState.maxRaiseAmount, actionState.minRaiseAmount))
@@ -44,14 +50,14 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
       </div>
 
       <div className={styles.coreActions}>
-        <button className={`${styles.actionButton} ${styles.fold}`} type="button" onClick={() => onAction('fold')}>弃牌</button>
-        <button className={`${styles.actionButton} ${styles.call}`} type="button" onClick={() => onAction(middleAction.action)}>{middleAction.label}</button>
+        <button className={`${styles.actionButton} ${styles.fold}`} type="button" onClick={() => act('fold')}>弃牌</button>
+        <button className={`${styles.actionButton} ${styles.call}`} type="button" onClick={() => act(middleAction.action)}>{middleAction.label}</button>
         <button
           className={`${styles.actionButton} ${styles.raise}`}
           type="button"
           disabled={!actionState.canRaise}
           aria-expanded={raiseOpen}
-          onClick={() => setRaiseOpen((open) => !open)}
+          onClick={() => { soundManager.playClick(); setRaiseOpen((open) => !open) }}
         >
           加注 <ChevronDown aria-hidden="true" size={15} />
         </button>
@@ -76,7 +82,7 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
             />
             <small><span>{actionState.minRaiseAmount}</span><span>{actionState.maxRaiseAmount}</span></small>
           </label>
-          <button className={styles.confirmRaise} type="button" onClick={() => onAction('raise', raiseAmount)}>
+          <button className={styles.confirmRaise} type="button" onClick={() => act('raise', raiseAmount)}>
             确认加注 {raiseAmount}
           </button>
         </div>

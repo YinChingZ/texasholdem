@@ -1,48 +1,33 @@
-import { createElement, useEffect, useState } from 'react'
-import { CircleDollarSign, Coins, Layers3, TrendingDown, Volume2, VolumeX, Zap } from 'lucide-react'
+import { createElement, useState } from 'react'
+import { Bell, CircleDollarSign, Coins, Hand, Layers3, Trophy, Volume2, VolumeX, Zap } from 'lucide-react'
 import { soundManager } from '../utils/soundManager'
 import ModalDialog from './ui/ModalDialog'
 import { Button } from './ui/Primitives'
 import styles from './SoundSettings.module.css'
 
 const soundSamples = [
-  { label: '筹码增加', Icon: Coins, play: () => soundManager.playChipGain() },
-  { label: '筹码减少', Icon: TrendingDown, play: () => soundManager.playChipLoss() },
-  { label: '下注', Icon: CircleDollarSign, play: () => soundManager.playBet(100) },
+  { label: '发牌', Icon: Layers3, play: () => soundManager.playDeal() },
   { label: '翻牌', Icon: Layers3, play: () => soundManager.playCardFlip() },
+  { label: '下注', Icon: CircleDollarSign, play: () => soundManager.playBet(100) },
+  { label: '弃牌', Icon: Hand, play: () => soundManager.playFold() },
   { label: '全押', Icon: Zap, play: () => soundManager.playAllIn() },
-  { label: '奖池变化', Icon: Coins, play: () => soundManager.playPotIncrease() },
+  { label: '收池', Icon: Coins, play: () => soundManager.playPotCollect() },
+  { label: '获胜', Icon: Trophy, play: () => soundManager.playWin() },
+  { label: '轮到你', Icon: Bell, play: () => soundManager.playYourTurn() },
 ]
 
 export default function SoundSettings({ isOpen, onClose }) {
-  const [soundEnabled, setSoundEnabled] = useState(true)
-  const [volume, setVolume] = useState(0.3)
-
-  useEffect(() => {
-    const savedSoundEnabled = localStorage.getItem('soundEnabled')
-    const savedVolume = Number.parseFloat(localStorage.getItem('soundVolume'))
-    if (savedSoundEnabled !== null) {
-      const enabled = savedSoundEnabled === 'true'
-      setSoundEnabled(enabled)
-      soundManager.setEnabled(enabled)
-    }
-    if (Number.isFinite(savedVolume)) {
-      const nextVolume = Math.min(1, Math.max(0, savedVolume))
-      setVolume(nextVolume)
-      soundManager.setVolume(nextVolume)
-    }
-  }, [])
+  const [soundEnabled, setSoundEnabled] = useState(() => soundManager.getSettings().enabled)
+  const [volume, setVolume] = useState(() => soundManager.getSettings().volume)
 
   const toggleSound = (enabled) => {
     setSoundEnabled(enabled)
     soundManager.setEnabled(enabled)
-    localStorage.setItem('soundEnabled', String(enabled))
   }
 
   const changeVolume = (nextVolume) => {
     setVolume(nextVolume)
     soundManager.setVolume(nextVolume)
-    localStorage.setItem('soundVolume', String(nextVolume))
   }
 
   return (

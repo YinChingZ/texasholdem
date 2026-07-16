@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { SocketContext } from './socket-context';
 
@@ -20,6 +20,19 @@ export const SocketProvider = ({ children }) => {
     const [connectionStatus, setConnectionStatus] = useState('connected'); // 新增：连接状态
     const [isReconnecting, setIsReconnecting] = useState(false); // 新增：重连状态
     const [hasLeftRoom, setHasLeftRoom] = useState(false); // 新增：标记是否主动退出房间
+    const [notices, setNotices] = useState([]); // 系统提示（替代阻塞式 alert，由 GlobalMessage 渲染）
+    const noticeIdRef = useRef(0);
+
+    const pushNotice = useCallback((message) => {
+        if (!message) return;
+        noticeIdRef.current += 1;
+        const id = noticeIdRef.current;
+        setNotices((current) => [...current, { id, message }]);
+    }, []);
+
+    const dismissNotice = useCallback((id) => {
+        setNotices((current) => current.filter((notice) => notice.id !== id));
+    }, []);
 
     // 新增：尝试重连的函数
     const attemptReconnect = useCallback(() => {
@@ -69,7 +82,7 @@ export const SocketProvider = ({ children }) => {
             setHasLeftRoom(false); // 重置退出标记
             
             // 显示重连成功消息
-            alert(message || '重新连接成功！');
+            pushNotice(message || '重新连接成功！');
         });
 
         // 新增：重连失败处理
@@ -122,7 +135,7 @@ export const SocketProvider = ({ children }) => {
             setError(null);
             
             // 显示成功消息
-            alert(message || '已成功退出房间');
+            pushNotice(message || '已成功退出房间');
         });        socket.on('roomCreated', ({ roomId, isCreator }) => {
             console.log('Room created:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
@@ -201,7 +214,7 @@ export const SocketProvider = ({ children }) => {
 
         socket.on('roomClosed', (data) => {
             console.log('Room closed:', data);
-            alert(data.message || '房间已关闭');
+            pushNotice(data.message || '房间已关闭');
             
             // Clear all state and return to login
             setHasLeftRoom(true);
@@ -220,9 +233,7 @@ export const SocketProvider = ({ children }) => {
             setHandResult(null);
             setPrivateCards([]);
             // 可选：显示提示消息
-            if (data.message) {
-                alert(data.message);
-            }
+            pushNotice(data.message);
         });
 
         socket.on('gameResetDueToInsufficientPlayers', (data) => {
@@ -231,9 +242,7 @@ export const SocketProvider = ({ children }) => {
             setHandResult(null);
             setPrivateCards([]);
             // 显示提示消息给房主
-            if (data.message) {
-                alert(data.message);
-            }
+            pushNotice(data.message);
         });
 
         socket.on('error', (error) => {
@@ -261,7 +270,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('gameResetDueToInsufficientPlayers');
             socket.off('error');
         };
-    }, [attemptReconnect]);    const clearHandResult = () => {
+    }, [attemptReconnect, pushNotice]);    const clearHandResult = () => {
         setHandResult(null);
     };    // 新增：退出房间的函数
     const leaveRoom = () => {
@@ -287,7 +296,9 @@ export const SocketProvider = ({ children }) => {
         connectionStatus, // 导出连接状态
         isReconnecting,   // 导出重连状态
         attemptReconnect, // 导出重连函数
-        leaveRoom       // 导出退出房间函数
+        leaveRoom,      // 导出退出房间函数
+        notices,        // 系统提示消息（替代 alert）
+        dismissNotice   // 关闭系统提示
     };
 
     return (

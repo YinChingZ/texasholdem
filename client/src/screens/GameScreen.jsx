@@ -21,6 +21,11 @@ const confirmations = {
 export default function GameScreen({
   room,
   gameState,
+  displayState,
+  seatEvents,
+  boardReveal,
+  potFlights,
+  revealedHands,
   privateCards,
   currentUserId,
   isRoomCreator,
@@ -34,6 +39,7 @@ export default function GameScreen({
   onShowLeaderboard,
   onSoundSettings,
 }) {
+  const tableState = displayState ?? gameState
   const [confirmation, setConfirmation] = useState(null)
   const [mobilePanel, setMobilePanel] = useState(null)
   const isCompact = useMediaQuery('(max-width: 1024px)')
@@ -78,7 +84,15 @@ export default function GameScreen({
       />
       <div className={styles.body}>
         <div className={styles.playColumn}>
-          <TableStage gameState={gameState} currentUserId={currentUserId} isSpectator={isSpectator} />
+          <TableStage
+            gameState={tableState}
+            seatEvents={seatEvents}
+            boardReveal={boardReveal}
+            potFlights={potFlights}
+            revealedHands={revealedHands}
+            currentUserId={currentUserId}
+            isSpectator={isSpectator}
+          />
           <HeroPanel player={player} privateCards={privateCards} gameState={gameState} isSpectator={isSpectator} onAction={onPlayerAction} />
         </div>
         {!isCompact && (

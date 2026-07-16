@@ -11,8 +11,10 @@ export default function HeroPanel({ player, privateCards, gameState, isSpectator
           <div className={styles.spectator}><Eye size={19} /><span><strong>旁观牌局</strong><small>手牌仅玩家本人可见</small></span></div>
         ) : (
           <>
-            <div className={styles.cards} aria-label="你的手牌">
-              {privateCards.map((card, index) => <PokerCard compact card={card} key={`${card.suit}-${card.rank}-${index}`} />)}
+            <div className={`${styles.cards} ${player?.status === 'folded' ? styles.mucked : ''}`} aria-label="你的手牌">
+              {privateCards.map((card, index) => (
+                <PokerCard compact card={card} animate="deal" delay={index * 120} key={`${card.suit}-${card.rank}-${index}`} />
+              ))}
             </div>
             <div className={styles.heroStats}>
               <span>你的筹码 <strong><CircleDollarSign size={14} />{player?.chips ?? 0}</strong></span>

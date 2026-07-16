@@ -1,3 +1,4 @@
+import ChipFlight from './ChipFlight'
 import CommunityBoard from './CommunityBoard'
 import PlayerSeat from './PlayerSeat'
 import { arrangePlayers } from './gameState'
@@ -10,7 +11,15 @@ const playerStateCopy = {
   disconnected: '已离线',
 }
 
-export default function TableStage({ gameState, currentUserId, isSpectator }) {
+export default function TableStage({
+  gameState,
+  seatEvents = {},
+  boardReveal,
+  potFlights = [],
+  revealedHands = {},
+  currentUserId,
+  isSpectator,
+}) {
   const players = gameState.players ?? []
   const anchorId = isSpectator ? gameState.creator : currentUserId
   const placements = arrangePlayers(players, anchorId)
@@ -41,11 +50,16 @@ export default function TableStage({ gameState, currentUserId, isSpectator }) {
             placement={placement}
             players={players}
             gameState={gameState}
+            actionEvent={seatEvents[placement.player.id]}
+            revealedCards={revealedHands[placement.player.id]}
             isHero={!isSpectator && placement.player.id === currentUserId}
           />
         ))}
       </div>
-      <CommunityBoard gameState={gameState} />
+      {potFlights.map((flight) => (
+        <ChipFlight key={flight.id} flight={flight} placements={placements} />
+      ))}
+      <CommunityBoard gameState={gameState} boardReveal={boardReveal} />
     </section>
   )
 }

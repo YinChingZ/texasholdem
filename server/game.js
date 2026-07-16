@@ -170,12 +170,18 @@ class Game {
                 throw new Error(`无效操作: ${action}`);        }
 
         const result = this._advanceTurn();
-        
-        if (result && result.handResult) {
+
+        if (result && (result.handResult || result.runout)) {
             return result;
         }
-        
+
         return this._getGameState();
+    }
+
+    // all-in runout：推进一街（或在河牌后执行摊牌）。仅当 playerAction 返回
+    // { runout: true } 后由服务端调用，每次调用推进一街并返回下一个标记/结果。
+    advanceRunoutStreet() {
+        return this._advanceGameState();
     }
       _handleCall(player) {
         const amountToCall = this.currentBet - player.currentBet;
@@ -517,17 +523,13 @@ class Game {
             // 开始新一轮下注
             const playersInGame = this.activePlayers.filter(p => p.status === 'in-game');
             
-            if (playersInGame.length === 0) {
-                // 所有玩家都all-in或弃牌，直接进入下一阶段
-                console.log('All players folded or all-in, auto-advancing...');
-                return this._advanceGameState();
-            }
-            
-            if (playersInGame.length === 1) {
-                // 只剩一个玩家，直接进入摊牌
-                console.log('Only one player remaining, moving to showdown');
-                this.gameState = 'SHOWDOWN';
-                return this._showdown();
+            if (playersInGame.length <= 1) {
+                // 无人（或仅剩一人）可行动，后续街没有下注空间：返回 runout 标记，
+                // 由调用方（index.js）逐街推进并广播。这同时修复了旧实现
+                // “一人 all-in 被跟注后直接在当前街摊牌、不发剩余公共牌”的规则错误。
+                console.log('Betting exhausted, runout pending...');
+                this.currentPlayerTurn = -1;
+                return { runout: true };
             }
             
             // 找到第一个可以行动的玩家（从小盲注位置开始）
