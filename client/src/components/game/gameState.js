@@ -26,11 +26,12 @@ export function arrangePlayers(players = [], anchorId) {
 export function deriveActionState(player, gameState) {
   const currentBet = gameState?.currentBet ?? 0
   const bigBlind = gameState?.bigBlind ?? 10
+  // 最小加注增量 = 本轮上一次完整加注的大小（服务端下发，回退为大盲），与后端校验一致
+  const minRaise = gameState?.minRaise ?? bigBlind
   const playerChips = player?.chips ?? 0
   const playerCurrentBet = player?.currentBet ?? 0
   const callAmount = Math.max(0, currentBet - playerCurrentBet)
-  const minRaiseTotal = Math.max(currentBet * 2, currentBet + bigBlind)
-  const minRaiseAmount = Math.max(0, minRaiseTotal - currentBet)
+  const minRaiseAmount = Math.max(0, minRaise)
   const maxRaiseAmount = Math.max(0, playerChips - callAmount)
   const isPlayerTurn = Boolean(player && gameState?.currentPlayerTurn === player.id)
   const canCheck = isPlayerTurn && callAmount === 0

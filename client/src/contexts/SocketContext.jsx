@@ -44,13 +44,16 @@ export const SocketProvider = ({ children }) => {
         
         const savedRoom = localStorage.getItem('texasholdem_room');
         const savedNickname = localStorage.getItem('texasholdem_nickname');
-        
-        if (savedRoom && savedNickname) {
+        const savedToken = localStorage.getItem('texasholdem_token');
+
+        // 无令牌无法安全恢复座位（服务端要求令牌匹配）
+        if (savedRoom && savedNickname && savedToken) {
             console.log(`Attempting to reconnect to room ${savedRoom} as ${savedNickname}`);
             setIsReconnecting(true);
-            socket.emit('attemptReconnect', { 
-                roomId: savedRoom, 
-                nickname: savedNickname 
+            socket.emit('attemptReconnect', {
+                roomId: savedRoom,
+                nickname: savedNickname,
+                token: savedToken
             });
         }
     }, [hasLeftRoom]);
@@ -72,7 +75,7 @@ export const SocketProvider = ({ children }) => {
         });
 
         // 新增：重连成功处理
-        socket.on('reconnectSuccess', ({ roomId, isCreator, message }) => {
+        socket.on('reconnectSuccess', ({ roomId, isCreator, token, message }) => {
             console.log('Reconnect successful:', { roomId, isCreator, message });
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator);
@@ -80,6 +83,7 @@ export const SocketProvider = ({ children }) => {
             setConnectionStatus('connected');
             setError(null);
             setHasLeftRoom(false); // 重置退出标记
+            if (token) localStorage.setItem('texasholdem_token', token);
             
             // 显示重连成功消息
             pushNotice(message || '重新连接成功！');
@@ -93,7 +97,8 @@ export const SocketProvider = ({ children }) => {
             // 清理本地存储
             localStorage.removeItem('texasholdem_room');
             localStorage.removeItem('texasholdem_nickname');
-            
+            localStorage.removeItem('texasholdem_token');
+
             // 重置状态
             setRoom(null);
             setGameState(null);
@@ -119,11 +124,12 @@ export const SocketProvider = ({ children }) => {
             
             // 标记用户主动退出房间
             setHasLeftRoom(true);
-            
+
             // 清理本地存储
             localStorage.removeItem('texasholdem_room');
             localStorage.removeItem('texasholdem_nickname');
-            
+            localStorage.removeItem('texasholdem_token');
+
             // 重置所有状态
             setRoom(null);
             setGameState(null);
@@ -136,25 +142,29 @@ export const SocketProvider = ({ children }) => {
             
             // 显示成功消息
             pushNotice(message || '已成功退出房间');
-        });        socket.on('roomCreated', ({ roomId, isCreator }) => {
+        });        socket.on('roomCreated', ({ roomId, isCreator, token }) => {
             console.log('Room created:', roomId, 'isCreator:', isCreator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
             setHasLeftRoom(false); // 重置退出标记
-            
+
             // 保存房间信息到本地存储
             localStorage.setItem('texasholdem_room', roomId);
+            if (token) localStorage.setItem('texasholdem_token', token);
         });
 
-        socket.on('roomJoined', ({ roomId, isCreator, isSpectator: spectator }) => {
+        socket.on('roomJoined', ({ roomId, isCreator, isSpectator: spectator, token }) => {
             console.log('Room joined:', roomId, 'isCreator:', isCreator, 'isSpectator:', spectator);
             setRoom({ id: roomId });
             setIsRoomCreator(isCreator || false);
             setIsSpectator(spectator || false);
             setHasLeftRoom(false); // 重置退出标记
-            
+
             // 保存房间信息到本地存储
             localStorage.setItem('texasholdem_room', roomId);
+            // 旁观者没有令牌；仅玩家会收到
+            if (token) localStorage.setItem('texasholdem_token', token);
+            else localStorage.removeItem('texasholdem_token');
         });        socket.on('roomSettingsUpdate', ({ settings }) => {
             setRoomSettings(settings);
         });        socket.on('gameStateUpdate', (newGameState) => {
@@ -220,6 +230,7 @@ export const SocketProvider = ({ children }) => {
             setHasLeftRoom(true);
             localStorage.removeItem('texasholdem_room');
             localStorage.removeItem('texasholdem_nickname');
+            localStorage.removeItem('texasholdem_token');
             setRoom(null);
             setGameState(null);
             setPrivateCards([]);

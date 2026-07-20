@@ -1,8 +1,12 @@
 const express = require('express');
 const http = require('http');
+const crypto = require('crypto');
 const { Server } = require("socket.io");
 const cors = require('cors'); // 引入 cors
 const { Game, Player } = require('./game.js');
+
+// 生成重连令牌：仅持有该令牌者才能恢复对应座位，防止仅凭房间号+昵称被冒名顶替
+const genReconnectToken = () => crypto.randomUUID();
 
 const app = express();
 const server = http.createServer(app);
@@ -97,6 +101,7 @@ const broadcastGameState = (roomId) => {
         communityCards: gameStateData.communityCards,
         gameState: gameStateData.gameState,
         currentBet: gameStateData.currentBet,
+        minRaise: gameStateData.minRaise,
         smallBlind: gameStateData.smallBlind,
         bigBlind: gameStateData.bigBlind,
         currentPlayerTurn: gameStateData.currentPlayerTurn,
@@ -123,24 +128,176 @@ const broadcastGameState = (roomId) => {
     }
 
     io.to(roomId).emit('gameStateUpdate', publicGameState);
+
+    // 每次广播后，按当前行动者维护行动超时计时器（防止断线/挂机玩家冻结牌桌）
+    armTurnTimer(roomId);
 };
+
+const BETTING_STATES = new Set(['PREFLOP', 'FLOP', 'TURN', 'RIVER']);
+
+// 行动超时：默认 45s，可用 TURN_TIMEOUT_MS 覆盖。
+// 默认在测试环境（设置了 PACING_MS）关闭以免干扰 e2e；可用 TURN_TIMER=on/off 显式覆盖。
+const TURN_TIMER_ENABLED = process.env.TURN_TIMER === 'on' ? true
+    : process.env.TURN_TIMER === 'off' ? false
+    : !Number.isFinite(PACING_OVERRIDE);
+const TURN_TIMEOUT_MS = Number.parseInt(process.env.TURN_TIMEOUT_MS ?? '', 10) || 45000;
+
+const clearTurnTimer = (room) => {
+    if (room && room.turnTimer) {
+        clearTimeout(room.turnTimer);
+        room.turnTimer = null;
+    }
+    if (room) room._timedTurnId = null;
+};
+
+// 为当前行动者安排一个超时计时器；若同一玩家仍在行动则不重置（避免聊天/设置广播刷新其计时）。
+function armTurnTimer(roomId) {
+    if (!TURN_TIMER_ENABLED) return;
+    const room = rooms.get(roomId);
+    if (!room || !room.game) return;
+    const game = room.game;
+    const turnId = (game.currentPlayerTurn >= 0 && game.currentPlayerTurn < game.activePlayers.length)
+        ? game.activePlayers[game.currentPlayerTurn].id
+        : null;
+
+    if (!BETTING_STATES.has(game.gameState) || !turnId) {
+        clearTurnTimer(room);
+        return;
+    }
+    if (room.turnTimer && room._timedTurnId === turnId) return; // 已在为该玩家计时
+    if (room.turnTimer) clearTimeout(room.turnTimer);
+    room._timedTurnId = turnId;
+    room.turnTimer = setTimeout(() => onTurnTimeout(roomId, turnId, game), TURN_TIMEOUT_MS);
+}
+
+// 超时触发：为当前行动者自动过牌（可过则过，否则弃牌），推进并广播。
+async function onTurnTimeout(roomId, turnId, game) {
+    const room = rooms.get(roomId);
+    if (!room || room.game !== game) return;
+    room.turnTimer = null;
+    room._timedTurnId = null;
+    if (!BETTING_STATES.has(game.gameState)) return;
+    const idx = game.currentPlayerTurn;
+    const player = (idx >= 0 && idx < game.activePlayers.length) ? game.activePlayers[idx] : null;
+    if (!player || player.id !== turnId || player.status !== 'in-game') return;
+
+    const canCheck = (game.currentBet - player.currentBet) <= 0;
+    const action = canCheck ? 'check' : 'fold';
+    try {
+        const result = game.playerAction(turnId, action);
+        io.to(roomId).emit('playerTimedOut', {
+            playerId: turnId,
+            nickname: player.nickname,
+            action
+        });
+        await settleResult(room, roomId, result);
+    } catch (err) {
+        console.error('onTurnTimeout error:', err.message);
+        broadcastGameState(roomId);
+    }
+}
+
+// 统一处理 playerAction / 中途离桌 / 超时 产生的结果：
+// - runout：逐街推进并广播（带节奏）
+// - handResult：延迟发送结算，保证客户端播放完最后动画
+function emitHandResult(room, roomId, result) {
+    if (!room.settings) room.settings = { showAllHands: true };
+    const shouldShowAllHands = room.settings.showAllHands !== false;
+
+    const winnerPlayerIds = new Set(result.winners.map(w => w.playerId));
+    const winnersHands = [];
+    const otherPlayersHands = [];
+    if (result.playersHands && Array.isArray(result.playersHands)) {
+        result.playersHands.forEach(ph => {
+            const playerHand = {
+                ...ph,
+                nickname: ph.nickname || room.players[ph.playerId]?.nickname || `Player ${ph.playerId}`
+            };
+            if (winnerPlayerIds.has(ph.playerId)) winnersHands.push(playerHand);
+            else otherPlayersHands.push(playerHand);
+        });
+    }
+
+    const finalPlayersHands = [
+        ...winnersHands,
+        ...(shouldShowAllHands ? otherPlayersHands : [])
+    ];
+
+    const handResultPayload = {
+        winners: result.winners.map(winner => ({
+            playerId: winner.playerId,
+            nickname: winner.nickname || room.players[winner.playerId]?.nickname || `Player ${winner.playerId}`,
+            amount: winner.amount,
+            handDescription: winner.handDescription,
+            handRank: winner.handRank,
+            handValue: winner.handValue
+        })),
+        communityCards: result.communityCards || (room.game.communityCards && Array.isArray(room.game.communityCards) ? room.game.communityCards.map(c => c.toString()) : []),
+        playersHands: finalPlayersHands,
+        handComparison: shouldShowAllHands ? result.handComparison : null,
+        showAllHands: shouldShowAllHands
+    };
+
+    const game = room.game;
+    // 保存待发结算，供“提前开始下一手”时立即补发（避免玩家看不到上一手结果）
+    room.pendingHandResult = { roomId, payload: handResultPayload, game };
+    if (room.pendingHandResultTimer) clearTimeout(room.pendingHandResultTimer);
+    room.pendingHandResultTimer = setTimeout(() => {
+        room.pendingHandResultTimer = null;
+        if (rooms.get(roomId) === room && room.game === game && game.gameState === 'SHOWDOWN_COMPLETE') {
+            io.to(roomId).emit('handResult', handResultPayload);
+        }
+        room.pendingHandResult = null;
+    }, HAND_RESULT_DELAY_MS);
+}
+
+// 若存在尚未发送的结算结果，立即补发（在开始下一手/重置前调用）
+function flushPendingHandResult(room, roomId) {
+    if (room.pendingHandResult) {
+        io.to(roomId).emit('handResult', room.pendingHandResult.payload);
+        room.pendingHandResult = null;
+    }
+    if (room.pendingHandResultTimer) {
+        clearTimeout(room.pendingHandResultTimer);
+        room.pendingHandResultTimer = null;
+    }
+}
+
+async function settleResult(room, roomId, result) {
+    const game = room.game;
+    if (result && result.runout) {
+        broadcastGameState(roomId);
+        while (result && result.runout) {
+            await sleep(RUNOUT_STREET_MS);
+            if (rooms.get(roomId) !== room || room.game !== game) return; // 房间/牌局已变更
+            result = game.advanceRunoutStreet();
+            if (result && result.runout) broadcastGameState(roomId);
+        }
+    }
+    if (result && result.handResult) {
+        emitHandResult(room, roomId, result);
+    }
+    broadcastGameState(roomId);
+}
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
   
   // 新增：检查重连恢复
-  socket.on('attemptReconnect', ({ roomId, nickname }) => {
+  socket.on('attemptReconnect', ({ roomId, nickname, token }) => {
     console.log(`Attempting reconnect for ${nickname} to room ${roomId}`);
-    
-    // 查找断开连接的玩家记录
+
+    // 必须提供有效令牌才能恢复座位（仅凭房间号+昵称不足以顶替他人）
     let reconnectInfo = null;
-    for (const [playerId, info] of disconnectedPlayers.entries()) {
-      if (info.roomId === roomId && info.nickname === nickname) {
-        reconnectInfo = { playerId, ...info };
-        break;
+    if (token) {
+      for (const [playerId, info] of disconnectedPlayers.entries()) {
+        if (info.roomId === roomId && info.token && info.token === token) {
+          reconnectInfo = { playerId, ...info };
+          break;
+        }
       }
     }
-    
+
     if (reconnectInfo) {
       const room = rooms.get(roomId);
       if (room && room.players[reconnectInfo.playerId]) {
@@ -168,10 +325,11 @@ io.on('connection', (socket) => {
         
         console.log(`Player ${nickname} successfully reconnected to room ${roomId}`);
         
-        // 通知重连成功
-        socket.emit('reconnectSuccess', { 
-          roomId, 
+        // 通知重连成功（回传令牌，保持客户端存储一致）
+        socket.emit('reconnectSuccess', {
+          roomId,
           isCreator: room.creator === socket.id,
+          token: player.reconnectToken,
           message: '重新连接成功！'
         });
         
@@ -202,6 +360,8 @@ io.on('connection', (socket) => {
     
     const roomId = generateRoomId();
     const player = new Player(socket.id, nickname.trim());
+    const reconnectToken = genReconnectToken();
+    player.reconnectToken = reconnectToken;
     const game = new Game([player]);    rooms.set(roomId, {
         roomId,
         players: { [socket.id]: player },
@@ -218,8 +378,8 @@ io.on('connection', (socket) => {
     const savedRoom = rooms.get(roomId);
     socket.join(roomId);
 
-    socket.emit('roomCreated', { roomId, isCreator: true });
-    
+    socket.emit('roomCreated', { roomId, isCreator: true, token: reconnectToken });
+
     // 立即广播游戏状态
     broadcastGameState(roomId);
     
@@ -273,13 +433,16 @@ io.on('connection', (socket) => {
 
     const initialChips = room.settings?.initialChips || 1000;
     const player = new Player(socket.id, nickname.trim(), initialChips);
+    const reconnectToken = genReconnectToken();
+    player.reconnectToken = reconnectToken;
     room.players[socket.id] = player;
     room.game.addPlayer(player);    socket.join(roomId);
     // 通知是否为房间创建者
-    socket.emit('roomJoined', { 
-        roomId, 
+    socket.emit('roomJoined', {
+        roomId,
         isCreator: room.creator === socket.id,
-        isSpectator: false
+        isSpectator: false,
+        token: reconnectToken
     });
     io.to(roomId).emit('playerJoined', { roomId, players: room.game.players.map(p => p.id) });
 
@@ -307,6 +470,8 @@ io.on('connection', (socket) => {
     }      try {
         // 如果是结算状态，先准备下一手
         if (room.game.gameState === 'SHOWDOWN_COMPLETE') {
+            // 上一手结算若还在动画延迟窗口内，先补发，保证玩家看到结果
+            flushPendingHandResult(room, roomId);
             const canProceed = room.game.prepareNextHand();
             if (!canProceed) {
                 return socket.emit('error', { message: '游戏结束 - 没有足够的玩家继续游戏' });
@@ -358,13 +523,16 @@ io.on('connection', (socket) => {
     // Add as player with initialChips from settings
     const initialChips = room.settings?.initialChips || 1000;
     const player = new Player(socket.id, spectator.nickname, initialChips);
+    const reconnectToken = genReconnectToken();
+    player.reconnectToken = reconnectToken;
     room.players[socket.id] = player;
     room.game.addPlayer(player);
-    
-    socket.emit('roomJoined', { 
-        roomId, 
+
+    socket.emit('roomJoined', {
+        roomId,
         isCreator: room.creator === socket.id,
-        isSpectator: false
+        isSpectator: false,
+        token: reconnectToken
     });
     io.to(roomId).emit('playerJoined', { roomId, players: room.game.players.map(p => p.id) });
     io.to(roomId).emit('spectatorLeft', { 
@@ -434,112 +602,18 @@ io.on('connection', (socket) => {
     if (room.game.gameState === 'WAITING' || room.game.gameState === 'SHOWDOWN_COMPLETE') {
         return socket.emit('error', { message: '游戏尚未开始或已结束' });
     }
-      try {
-        let result = room.game.playerAction(socket.id, action, betAmount);
-
-        // all-in runout：逐街推进并广播，所有客户端同步看到发牌节奏
-        if (result && result.runout) {
-            const game = room.game;
-            broadcastGameState(roomId); // 先广播已推进到的第一条街
-            while (result && result.runout) {
-                await sleep(RUNOUT_STREET_MS);
-                // 延迟期间房间可能被关闭 / 牌局被重置
-                if (rooms.get(roomId) !== room || room.game !== game) return;
-                result = game.advanceRunoutStreet();
-                if (result && result.runout) {
-                    broadcastGameState(roomId);
-                }
-            }
-        }
-
-        // 检查是否有手牌结果
-        if (result && result.handResult) {
-            // 确保房间有设置
-            if (!room.settings) {
-                room.settings = { showAllHands: true };
-            }
-            
-            const shouldShowAllHands = room.settings.showAllHands !== false;
-            
-            // 构建获胜者手牌（始终显示）
-            const winnerPlayerIds = new Set(result.winners.map(w => w.playerId));
-            
-            // 分离获胜者和其他玩家的手牌
-            const winnersHands = [];
-            const otherPlayersHands = [];
-            
-            if (result.playersHands && Array.isArray(result.playersHands)) {
-                result.playersHands.forEach(ph => {
-                    const playerHand = {
-                        ...ph,
-                        nickname: ph.nickname || room.players[ph.playerId]?.nickname || `Player ${ph.playerId}`
-                    };
-                    
-                    if (winnerPlayerIds.has(ph.playerId)) {
-                        winnersHands.push(playerHand);
-                    } else {
-                        otherPlayersHands.push(playerHand);
-                    }
-                });
-            }
-            
-            // 构建最终的手牌列表：获胜者手牌 + (根据设置显示的其他玩家手牌)
-            const finalPlayersHands = [
-                ...winnersHands,  // 获胜者手牌始终显示
-                ...(shouldShowAllHands ? otherPlayersHands : [])  // 其他玩家手牌根据设置显示
-            ];
-            
-            const handResultPayload = {
-                winners: result.winners.map(winner => ({
-                    playerId: winner.playerId,
-                    nickname: winner.nickname || room.players[winner.playerId]?.nickname || `Player ${winner.playerId}`,
-                    amount: winner.amount,
-                    handDescription: winner.handDescription,
-                    handRank: winner.handRank,
-                    handValue: winner.handValue
-                })),
-                communityCards: result.communityCards || (room.game.communityCards && Array.isArray(room.game.communityCards) ? room.game.communityCards.map(c => c.toString()) : []),
-                playersHands: finalPlayersHands,
-                handComparison: shouldShowAllHands ? result.handComparison : null,
-                showAllHands: shouldShowAllHands
-            };
-
-            // 延迟发送结算结果，给客户端时间播放最后的动作 / 河牌动画。
-            // 守卫：房间被关闭、牌局被重置或已手动开始下一手时取消发送。
-            const game = room.game;
-            if (room.pendingHandResultTimer) {
-                clearTimeout(room.pendingHandResultTimer);
-            }
-            room.pendingHandResultTimer = setTimeout(() => {
-                room.pendingHandResultTimer = null;
-                if (rooms.get(roomId) === room && room.game === game
-                    && game.gameState === 'SHOWDOWN_COMPLETE') {
-                    io.to(roomId).emit('handResult', handResultPayload);
-                }
-            }, HAND_RESULT_DELAY_MS);
-              
-            // 注释掉自动准备下一手的机制，改为手动触发
-            // setTimeout(() => {
-            //     if (room && room.game && room.game.gameState === 'SHOWDOWN_COMPLETE') {
-            //         const canProceed = room.game.prepareNextHand();
-            //         if (canProceed) {
-            //             broadcastGameState(roomId);
-            //             console.log(`Auto-prepared next hand for room: ${roomId}`);
-            //         } else {
-            //             console.log(`Cannot prepare next hand for room: ${roomId} - not enough players`);
-            //             // 可选：通知所有玩家游戏结束
-            //             io.to(roomId).emit('gameOver', { 
-            //                 message: '游戏结束 - 没有足够的玩家继续游戏' 
-            //             });
-            //         }
-            //     }
-            // }, 5000);
-        }
-        
-        broadcastGameState(roomId);
-
+    // 仅接受已知动作；betAmount 由 Game 层再次规整（NaN/负数/小数）
+    if (!['fold', 'check', 'call', 'raise', 'bet'].includes(action)) {
+        return socket.emit('error', { message: `无效操作: ${action}` });
+    }
+    try {
+        // 玩家主动行动 → 清除其行动计时器（settleResult 内的广播会为下一位重新安排）
+        clearTurnTimer(room);
+        const result = room.game.playerAction(socket.id, action, betAmount);
+        await settleResult(room, roomId, result);
     } catch (error) {
         socket.emit('error', { message: error.message });
+        broadcastGameState(roomId); // 重新安排计时器 / 纠正客户端本地状态
     }
   });  // 新增：手动准备下一手的事件
   socket.on('prepareNextHand', ({ roomId }) => {
@@ -555,6 +629,8 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: '只有房间创建者才能开始下一局游戏' });
             return;
         }if (room.game.gameState === 'SHOWDOWN_COMPLETE') {
+            // 若上一手结算尚未发送（动画延迟窗口内），先补发，保证玩家看到结果
+            flushPendingHandResult(room, roomId);
             const canProceed = room.game.prepareNextHand();
             if (canProceed) {
                 // 发送新的底牌给每个活跃玩家
@@ -579,27 +655,38 @@ io.on('connection', (socket) => {
   socket.on('sendMessage', ({ roomId, message }) => {
       // Basic chat functionality
       const room = rooms.get(roomId);
-      if (room) {
-          const player = room.players[socket.id];
-          const spectator = room.spectators[socket.id];
-          const sender = player ? player.nickname : (spectator ? spectator.nickname : 'Unknown');
-          const isSpectator = !player && !!spectator;
-          
-          io.to(roomId).emit('newMessage', { 
-              sender, 
-              message,
-              isSpectator
-            });
-      }
+      if (!room) return;
+      // 仅允许房间内的玩家/旁观者发言
+      const player = room.players[socket.id];
+      const spectator = room.spectators[socket.id];
+      if (!player && !spectator) return;
+
+      // 内容校验：必须是非空字符串，去除首尾空白并限制长度
+      if (typeof message !== 'string') return;
+      const text = message.trim().slice(0, 500);
+      if (!text) return;
+
+      // 简单限流：同一连接两条消息至少间隔 400ms
+      const now = Date.now();
+      if (socket.data.lastMsgAt && now - socket.data.lastMsgAt < 400) return;
+      socket.data.lastMsgAt = now;
+
+      const sender = player ? player.nickname : spectator.nickname;
+      const isSpectator = !player && !!spectator;
+
+      io.to(roomId).emit('newMessage', { sender, message: text, isSpectator });
   });
   // 新增：主动退出房间
-  socket.on('leaveRoom', ({ roomId }) => {
+  socket.on('leaveRoom', async ({ roomId }) => {
     console.log(`Player ${socket.id} requesting to leave room ${roomId}`);
-    
+
     const room = rooms.get(roomId);
     if (!room || !room.players[socket.id]) {
       return socket.emit('error', { message: '您不在此房间中' });
     }
+
+    // 离桌可能改变行动顺序：清除计时器，后续广播会为新的行动者重新安排
+    clearTurnTimer(room);
 
     const player = room.players[socket.id];
     console.log(`Player ${player.nickname} is leaving room ${roomId}`);
@@ -655,6 +742,11 @@ io.on('connection', (socket) => {
       io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
       broadcastGameState(roomId);
     }
+
+    // 若中途离桌导致本手需要结算（如仅剩一名玩家）/推进 all-in runout，统一处理
+    if (rooms.get(roomId) === room && removeResult && removeResult.result) {
+      await settleResult(room, roomId, removeResult.result);
+    }
   });
 
   // 新增：重置游戏到准备阶段
@@ -677,16 +769,22 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // 清除进行中的计时器与待发结算（重置会丢弃本局，无需补发上一手结果）
+      clearTurnTimer(room);
+      if (room.pendingHandResultTimer) { clearTimeout(room.pendingHandResultTimer); room.pendingHandResultTimer = null; }
+      room.pendingHandResult = null;
+
       // 重置游戏状态
       room.game.gameState = 'WAITING';
       room.game.mainPot = 0;
       room.game.sidePots = [];
       room.game.communityCards = [];
       room.game.currentBet = 0;
+      room.game.minRaise = room.game.bigBlind;
       room.game.lastRaiser = null;
       room.game.roundComplete = false;
       room.game.currentPlayerTurn = -1;
-      
+
       // 清除排行榜数据
       room.leaderboard = null;
       
@@ -742,9 +840,14 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // 结束游戏：停止行动计时器，丢弃待发结算
+      clearTurnTimer(room);
+      if (room.pendingHandResultTimer) { clearTimeout(room.pendingHandResultTimer); room.pendingHandResultTimer = null; }
+      room.pendingHandResult = null;
+
       // 强制结束游戏
       room.game.gameState = 'GAME_OVER';
-      
+
       // 准备排行榜数据（按剩余筹码排序）
       const leaderboard = room.game.players
         .map(p => ({
@@ -790,9 +893,14 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // 停止房间内的所有计时器
+      clearTurnTimer(room);
+      if (room.pendingHandResultTimer) { clearTimeout(room.pendingHandResultTimer); room.pendingHandResultTimer = null; }
+      room.pendingHandResult = null;
+
       // 通知所有玩家房间被关闭
       io.to(roomId).emit('roomClosed', { message: '房主已关闭房间' });
-      
+
       // 让所有玩家离开房间
       Object.keys(room.players).forEach(playerId => {
         const playerSocket = io.sockets.sockets.get(playerId);
@@ -831,10 +939,11 @@ io.on('connection', (socket) => {
         if (room.players[socket.id]) {
             const player = room.players[socket.id];
             
-            // 将玩家信息存储到断开连接记录中，支持重连
+            // 将玩家信息存储到断开连接记录中，支持重连（含身份令牌，防止被冒名顶替）
             disconnectedPlayers.set(socket.id, {
                 roomId,
                 nickname: player.nickname,
+                token: player.reconnectToken,
                 lastSeen: Date.now(),
                 socketId: socket.id
             });
@@ -846,18 +955,22 @@ io.on('connection', (socket) => {
             
             // 暂时不从游戏中移除玩家，给予重连机会
             // 30秒后如果没有重连，则移除
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (disconnectedPlayers.has(socket.id)) {
                     // 玩家没有重连，正式移除
                     console.log(`Player ${player.nickname} did not reconnect, removing from game`);
-                    
+
                     const currentRoom = rooms.get(roomId);
                     if (currentRoom && currentRoom.players[socket.id]) {
+                        // 离桌可能改变行动顺序：先停掉可能属于该玩家的计时器
+                        clearTurnTimer(currentRoom);
                         // 使用Game类的removePlayer方法
                         const removeResult = currentRoom.game.removePlayer(socket.id);
                         delete currentRoom.players[socket.id];
-                        
+
                         if (Object.keys(currentRoom.players).length === 0) {
+                            clearTurnTimer(currentRoom);
+                            if (currentRoom.pendingHandResultTimer) { clearTimeout(currentRoom.pendingHandResultTimer); currentRoom.pendingHandResultTimer = null; }
                             rooms.delete(roomId);
                             console.log(`Room ${roomId} is empty and has been deleted.`);
                         } else if (wasCreator) {
@@ -868,14 +981,14 @@ io.on('connection', (socket) => {
                                 console.log(`Room ${roomId} creator left, new creator: ${currentRoom.creator}`);
                                 // 通知新房主
                                 io.to(currentRoom.creator).emit('becameCreator', { roomId });
-                                
+
                                 // 如果游戏因玩家不足而重置，通知新房主
                                 if (removeResult && removeResult.shouldResetGame) {
                                     io.to(currentRoom.creator).emit('gameResetDueToInsufficientPlayers', {
                                         message: '游戏剩余玩家不足，将回退到准备阶段'
                                     });
                                 }
-                                
+
                                 // 广播更新的游戏状态（包含新的creator信息）
                                 broadcastGameState(roomId);
                             }
@@ -886,12 +999,17 @@ io.on('connection', (socket) => {
                                     message: '游戏剩余玩家不足，将回退到准备阶段'
                                 });
                             }
-                            
+
                             io.to(roomId).emit('playerLeft', { roomId, playerId: socket.id });
                             broadcastGameState(roomId);
                         }
+
+                        // 若离桌导致本手需要结算 / 推进 runout，统一处理
+                        if (rooms.get(roomId) === currentRoom && removeResult && removeResult.result) {
+                            await settleResult(currentRoom, roomId, removeResult.result);
+                        }
                     }
-                    
+
                     // 清理断开连接记录
                     disconnectedPlayers.delete(socket.id);
                 }
@@ -956,6 +1074,12 @@ io.on('connection', (socket) => {
         // 检查是否为房间创建者
         if (room.creator !== socket.id) {
             socket.emit('error', { message: '只有房间创建者才能修改筹码设置' });
+            return;
+        }
+
+        // 仅允许在准备阶段修改初始筹码：进行中修改会直接改写所有人当前筹码，破坏牌局
+        if (room.game.gameState !== 'WAITING') {
+            socket.emit('error', { message: '游戏进行中无法修改初始筹码，请先重置或结束游戏' });
             return;
         }
 
