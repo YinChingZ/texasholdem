@@ -10,7 +10,12 @@ describe('deriveScreen', () => {
     ['lobby', { ...connected, room: { id: 'ROOM1' }, gameState: { gameState: 'WAITING' } }],
     ['game', { ...connected, room: { id: 'ROOM1' }, gameState: { gameState: 'FLOP' } }],
     ['reconnecting', { ...connected, room: null, gameState: null, isReconnecting: true }],
-    ['disconnected', { ...connected, room: null, gameState: null, connectionStatus: 'disconnected' }],
+    ['welcome', { ...connected, room: null, gameState: null, connectionStatus: 'connecting' }],
+    ['welcome', { ...connected, room: null, gameState: null, connectionStatus: 'disconnected' }],
+    ['connecting', { ...connected, room: null, gameState: null, connectionStatus: 'connecting', hasSessionTarget: true }],
+    ['disconnected', { ...connected, room: null, gameState: null, connectionStatus: 'disconnected', hasSessionTarget: true }],
+    ['disconnected', { ...connected, room: { id: 'ROOM1' }, gameState: null, connectionStatus: 'disconnected' }],
+    ['expired', { ...connected, room: null, gameState: null, connectionStatus: 'expired' }],
   ])('returns %s', (expected, input) => {
     expect(deriveScreen(input)).toBe(expected)
   })

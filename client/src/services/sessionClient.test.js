@@ -117,7 +117,7 @@ describe('SessionClient recovery', () => {
 it('returns to a usable homepage even when the transport cannot connect', async () => {
   const { client, raw }=setup(false);raw.connect.mockImplementation(()=>{raw.fire('connect_error')});client.start()
   expect(client.state.connectionStatus).toBe('disconnected');client.home()
-  expect(client.state.connectionStatus).toBe('connected');expect(client.state.room).toBeNull()
+  expect(client.state.connectionStatus).toBe('disconnected');expect(client.state.hasSessionTarget).toBe(false);expect(client.state.room).toBeNull()
   await client.command('createRoom',{nickname:'A'});expect(raw.sent).toHaveLength(0);client.stop()
 })
 
@@ -126,4 +126,28 @@ it('lost leave acknowledgement confirms departure without restoring the exited s
   raw.replies.set('commandStatus',(_args,ack)=>ack({ok:true,commandResult:{ok:true,left:true}}))
   const pending=client.leaveRoom();await vi.advanceTimersByTimeAsync(8000);await pending
   expect(client.state.room).toBeNull();expect(client.target).toBeNull();client.stop()
+})
+
+it('first handshake failure is transient until three seconds, then clears on successful retry', async () => {
+  const {client,raw}=setup(false)
+  raw.connect.mockImplementation(()=>raw.fire('connect_error'));client.start()
+  expect(client.state.hasSessionTarget).toBe(false);expect(client.state.entryConnectionIssue).toBe(false)
+  await vi.advanceTimersByTimeAsync(1000);raw.fire('connect_error')
+  await vi.advanceTimersByTimeAsync(1999);expect(client.state.entryConnectionIssue).toBe(false)
+  await vi.advanceTimersByTimeAsync(1);expect(client.state.entryConnectionIssue).toBe(true)
+  raw.connected=true;raw.fire('connect');expect(client.state.entryConnectionIssue).toBe(false);expect(client.state.connectionStatus).toBe('connected')
+  client.stop()
+})
+
+it('only a saved credential marks startup as a room restoration', () => {
+  const anonymous=setup(false), returning=setup(true)
+  expect(anonymous.client.state.hasSessionTarget).toBe(false)
+  expect(returning.client.state.hasSessionTarget).toBe(true)
+})
+
+it('a quick initial retry never produces a delayed failure indicator', async () => {
+  const {client,raw}=setup(false);raw.connect.mockImplementation(()=>raw.fire('connect_error'));client.start()
+  await vi.advanceTimersByTimeAsync(500);raw.connected=true;raw.fire('connect')
+  await vi.advanceTimersByTimeAsync(4000);expect(client.state.entryConnectionIssue).toBe(false)
+  expect(client.state.connectionStatus).toBe('connected');client.stop()
 })

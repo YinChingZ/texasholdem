@@ -329,6 +329,7 @@ export function createPreviewValue(state) {
   return {
     socket,
     isConnected: state !== 'disconnected',
+    hasSessionTarget: state !== 'welcome',
     gameState,
     privateCards: [
       { rank: 'A', suit: 'Spades' },

@@ -74,10 +74,38 @@ test('关闭结算弹窗后自动续局，常驻入口可查看上一手',async(
   } finally {await a.close();await b.close()}
 })
 
-test('首次服务不可达时显示断线状态，并可返回首页',async({page})=>{
+test('首次服务不可达时仍显示首页，持续失败才显示内联重试提示',async({page})=>{
   await page.route('**/socket.io/**',route=>route.abort())
   await page.goto('/')
-  await expect(page.getByRole('heading',{name:'牌桌暂时离线'})).toBeVisible({timeout:15000})
-  await page.getByRole('button',{name:'返回首页'}).click()
-  await expect(page.getByRole('button',{name:/创建新房间/})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'德州扑克',exact:true})).toBeVisible()
+  await page.getByLabel('昵称').fill('离线玩家')
+  await expect(page.getByRole('button',{name:/创建新房间/})).toBeDisabled()
+  await expect(page.getByRole('button',{name:'重新连接',exact:true})).toBeVisible({timeout:10000})
+  await expect(page.getByText('暂时无法连接服务，正在自动重试。')).toBeVisible()
+  await expect(page.getByRole('heading',{name:'牌桌暂时离线'})).not.toBeVisible()
+  await page.unroute('**/socket.io/**')
+  await page.getByRole('button',{name:'重新连接',exact:true}).click()
+  await expect(page.getByRole('button',{name:/创建新房间/})).toBeEnabled()
+  await expect(page.getByLabel('昵称')).toHaveValue('离线玩家')
+})
+
+test('首次握手短暂失败再成功，全程保留首页与输入且不闪失败页',async({page})=>{
+  let attempts=0, firstAttemptAt
+  await page.addInitScript(()=>{
+    window.entryHeadings=[]
+    new MutationObserver(()=>{for(const h of document.querySelectorAll('h1')) if(!window.entryHeadings.includes(h.textContent)) window.entryHeadings.push(h.textContent)}).observe(document,{childList:true,subtree:true})
+  })
+  await page.route('**/socket.io/**',async route=>{
+    attempts++
+    firstAttemptAt ??= Date.now()
+    if(Date.now()-firstAttemptAt<500) await route.abort()
+    else await route.continue()
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading',{name:'德州扑克',exact:true})).toBeVisible()
+  await page.getByLabel('昵称').fill('新玩家')
+  await expect(page.getByRole('button',{name:/创建新房间/})).toBeEnabled({timeout:15000})
+  expect(attempts).toBeGreaterThan(1)
+  expect(await page.evaluate(()=>window.entryHeadings)).toEqual(['德州扑克'])
+  await expect(page.getByLabel('昵称')).toHaveValue('新玩家')
 })

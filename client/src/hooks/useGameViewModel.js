@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 
-export function deriveScreen({ room, gameState, connectionStatus, isReconnecting }) {
+export function deriveScreen({ room, gameState, connectionStatus, isReconnecting, hasSessionTarget = false }) {
+  if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return connectionStatus
+  if (!room && !hasSessionTarget && !isReconnecting) return 'welcome'
   if (isReconnecting) return 'reconnecting'
   if (connectionStatus === 'disconnected') return 'disconnected'
   if (connectionStatus === 'connecting') return 'connecting'
-  if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return connectionStatus
   if (!room) return 'welcome'
   if (!gameState) return 'connecting'
   if (gameState.phase === 'LOBBY' || (!gameState.phase && gameState.gameState === 'WAITING')) return 'lobby'
@@ -16,6 +17,7 @@ export function useGameViewModel({
   gameState,
   connectionStatus,
   isReconnecting,
+  hasSessionTarget,
   socketId,
   isRoomCreator,
   isSpectator,
@@ -23,7 +25,7 @@ export function useGameViewModel({
   return useMemo(() => {
     const players = gameState?.players ?? []
     return {
-      screen: deriveScreen({ room, gameState, connectionStatus, isReconnecting }),
+      screen: deriveScreen({ room, gameState, connectionStatus, isReconnecting, hasSessionTarget }),
       room,
       gameState,
       players,
@@ -33,5 +35,5 @@ export function useGameViewModel({
         isSpectator,
       },
     }
-  }, [room, gameState, connectionStatus, isReconnecting, socketId, isRoomCreator, isSpectator])
+  }, [room, gameState, connectionStatus, isReconnecting, hasSessionTarget, socketId, isRoomCreator, isSpectator])
 }

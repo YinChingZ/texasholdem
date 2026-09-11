@@ -3,9 +3,10 @@ import { Button, Input } from '../components/ui/Primitives'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import styles from './WelcomeScreen.module.css'
 
-export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRoomIdChange, onCreateRoom, onJoinRoom, onCreateTraining, onShowReports, error, notice }) {
+export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRoomIdChange, onCreateRoom, onJoinRoom, onCreateTraining, onShowReports, connectionStatus = 'connected', connectionIssue = false, onRetry, error, notice }) {
   const errorCopy = { 'Room not found': '房间不存在，请检查房间号', 'Room is full': '房间已满，请联系房主' }[error] ?? error
-  const canCreate = nickname.trim().length > 0
+  const serviceReady = ['connected', 'synced'].includes(connectionStatus)
+  const canCreate = serviceReady && nickname.trim().length > 0
   const canJoin = canCreate && roomId.trim().length > 0
   return (
     <main className={styles.screen}>
@@ -23,6 +24,10 @@ export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRo
           <Input id="room-id" label="房间号" autoCapitalize="none" autoComplete="off" maxLength={12} placeholder="输入房间号" value={roomId} onChange={event => onRoomIdChange(event.target.value)} />
           <Button type="submit" variant="ghost" disabled={!canJoin}>加入房间</Button>
         </form>
+        {!serviceReady && <div className={styles.connection}>
+          <p role="status">{connectionIssue ? '暂时无法连接服务，正在自动重试。' : '正在连接服务…'}</p>
+          {connectionIssue && onRetry && <Button variant="ghost" onClick={onRetry}>重新连接</Button>}
+        </div>}
         {notice && !error && <p className={styles.notice} role="status">{notice}</p>}
         {error && <p className={styles.error} role="alert">{errorCopy}</p>}
       </section>

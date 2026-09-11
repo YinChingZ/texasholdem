@@ -33,6 +33,8 @@ export default function GameTable() {
     returnHome,
     roomSettings,
     connectionStatus,
+    hasSessionTarget,
+    entryConnectionIssue,
     isReconnecting,
     leaveRoom,
     attemptReconnect,
@@ -144,6 +146,7 @@ export default function GameTable() {
     room,
     gameState,
     connectionStatus,
+    hasSessionTarget,
     isReconnecting,
     socketId: playerId ?? socket?.id,
     isRoomCreator,
@@ -186,7 +189,7 @@ export default function GameTable() {
 
   if (viewModel.screen === 'welcome' && showReports) return <ReportLibrary onBack={() => setShowReports(false)} />
   if (viewModel.screen === 'welcome') {
-    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={value => { clearEntryNotices(); setNickname(value) }} onRoomIdChange={value => { clearEntryNotices(); setRoomIdInput(value) }} onCreateTraining={() => { clearEntryNotices(); localStorage.setItem('texasholdem_nickname', nickname); socket.emit('createTraining', { nickname }) }} onShowReports={() => setShowReports(true)} onCreateRoom={createRoom} onJoinRoom={joinRoom} error={error} notice={notices?.at(-1)?.message} />)
+    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={value => { clearEntryNotices(); setNickname(value) }} onRoomIdChange={value => { clearEntryNotices(); setRoomIdInput(value) }} onCreateTraining={() => { clearEntryNotices(); localStorage.setItem('texasholdem_nickname', nickname); socket.emit('createTraining', { nickname }) }} onShowReports={() => setShowReports(true)} onCreateRoom={createRoom} onJoinRoom={joinRoom} connectionStatus={connectionStatus} connectionIssue={entryConnectionIssue} onRetry={attemptReconnect} error={error} notice={notices?.at(-1)?.message} />)
   }
   if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return withSpectatorDialog(<ConnectionScreen kind={connectionStatus} roomId={room?.id} onTakeover={takeover} onHome={returnHome} />)
   if (viewModel.screen === 'connecting') return withSpectatorDialog(<ConnectionScreen kind="connecting" roomId={room?.id} onHome={returnHome} />)

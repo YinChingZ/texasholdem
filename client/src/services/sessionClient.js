@@ -11,9 +11,10 @@ const empty = { gameState: null, privateCards: [], room: null, handResult: null,
 export class SessionClient {
   constructor(socket, { storage = localStorage, tabStorage = sessionStorage, clock = { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: id => globalThis.clearTimeout(id), now: () => Date.now() }, uuid = () => crypto.randomUUID() } = {}) {
     this.raw = socket; this.storage = storage; this.tabStorage = tabStorage; this.clock = clock; this.uuid = uuid
-    this.state = { ...empty, connectionStatus: 'connecting', isConnected: false, isReconnecting: false, notices: [], recoveryVersion: 0 }
+    this.target = this.readTarget()
+    this.state = { ...empty, connectionStatus: 'connecting', isConnected: false, isReconnecting: false, hasSessionTarget: !!this.credential(), entryConnectionIssue: false, notices: [], recoveryVersion: 0 }
     this.listeners = new Set(); this.pendingTimers = new Set(); this.retry = 0; this.epoch = 0; this.running = false
-    this.target = this.readTarget(); this.homeChosen = false; this.dismissedResult = null; this.requestCounter = 0
+    this.entryFailureSince = null; this.homeChosen = false; this.dismissedResult = null; this.requestCounter = 0
     const client = this
     this.socket = {
       get id() { return client.state.playerId },
@@ -47,7 +48,7 @@ export class SessionClient {
   credential(roomId = this.target) {
     if (!roomId) return null
     const saved = this.readJSON(CREDENTIALS)[roomId]
-    if (saved) return saved
+    if (typeof saved?.token === 'string' && saved.token) return saved
     if (this.storage.getItem('texasholdem_room') === roomId && this.storage.getItem('texasholdem_token')) return { token: this.storage.getItem('texasholdem_token') }
     return null
   }
@@ -92,15 +93,24 @@ export class SessionClient {
   }
   cancelTask(task) { this.clock.clearTimeout(task.handle); this.pendingTimers.delete(task) }
   connected() {
-    this.update({ isConnected: true })
+    this.entryFailureSince = null
+    this.update({ isConnected: true, entryConnectionIssue: false })
     if (['replaced', 'in-use', 'protocol-error', 'expired'].includes(this.state.connectionStatus)) return
     if (this.target && this.credential()) this.resume()
-    else this.update({ ...empty, connectionStatus: 'connected', isReconnecting: false })
+    else this.update({ ...empty, connectionStatus: 'connected', isReconnecting: false, hasSessionTarget: false })
   }
   disconnected() {
     this.epoch++; this.clearTimers(); this.entering = false
     if (['replaced', 'in-use', 'protocol-error', 'expired'].includes(this.state.connectionStatus)) { this.update({ isConnected: false }); return }
-    this.update({ isConnected: false, connectionStatus: this.homeChosen && !this.target ? 'connected' : 'disconnected', isReconnecting: false, error: this.homeChosen && !this.target ? '网络不可用，连接后即可加入房间' : null })
+    this.update({ isConnected: false, connectionStatus: 'disconnected', isReconnecting: false })
+    if (!this.state.room && !this.state.hasSessionTarget) {
+      // A transient initial handshake failure should not replace the entry page
+      // or flash an error while Socket.IO's automatic reconnect is in progress.
+      this.entryFailureSince ??= this.clock.now()
+      this.later(() => {
+        if (this.running && !this.raw.connected && !this.state.room && !this.state.hasSessionTarget) this.update({ entryConnectionIssue: true })
+      }, Math.max(0, 3000 - (this.clock.now() - this.entryFailureSince)))
+    }
   }
 
   request(event, args, timeout = 8000) {
@@ -124,7 +134,7 @@ export class SessionClient {
     if (!credential || !roomId || !this.raw.connected) return
     const epoch = ++this.epoch
     this.clearTimers()
-    this.update({ connectionStatus: 'reconnecting', isReconnecting: true, error: null })
+    this.update({ connectionStatus: 'reconnecting', isReconnecting: true, hasSessionTarget: true, error: null })
     const response = await this.request('resumeSession', { protocolVersion: PROTOCOL_VERSION, requestId: this.uuid(), roomId, token: credential.token, takeover })
     if (epoch !== this.epoch || !this.running) return
     if (!response) {
@@ -161,7 +171,7 @@ export class SessionClient {
     this.update({ gameState: snapshot, room: { id: snapshot.roomId }, privateCards: snapshot.privateCards || [],
       playerId: snapshot.self.playerId, isRoomCreator: snapshot.creator === snapshot.self.playerId, isSpectator: snapshot.self.role === 'spectator',
       roomSettings: snapshot.settings, lastResult: result, handResult: show ? result : newHand || recovered ? null : this.state.handResult,
-      connectionStatus: 'synced', isReconnecting: false, isConnected: true, error: recovered ? null : this.state.error,
+      connectionStatus: 'synced', isReconnecting: false, isConnected: true, hasSessionTarget: true, entryConnectionIssue: false, error: recovered ? null : this.state.error,
       recoveryVersion: this.state.recoveryVersion + (recovered ? 1 : 0),
       serverOffset: snapshot.serverNow - this.clock.now(),
     })
@@ -172,7 +182,8 @@ export class SessionClient {
     // Detach any seat on this connection via a real disconnect; do not erase a
     // credential shared with a different tab. Its current hand remains valid.
     if (this.raw.connected) this.raw.disconnect()
-    this.update({ ...empty, connectionStatus: 'connected', isReconnecting: false })
+    this.entryFailureSince = null
+    this.update({ ...empty, connectionStatus: 'connecting', isReconnecting: false, hasSessionTarget: false, entryConnectionIssue: false })
     if (this.running) this.raw.connect()
   }
 

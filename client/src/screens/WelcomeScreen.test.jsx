@@ -48,3 +48,16 @@ describe('WelcomeScreen', () => {
     expect(onJoinRoom).toHaveBeenCalledOnce()
   })
 })
+
+it('keeps entry inputs available while the service connects, enabling network actions only when ready', () => {
+  const props={nickname:'测试',roomId:'ROOM',onNicknameChange:vi.fn(),onRoomIdChange:vi.fn(),onCreateRoom:vi.fn(),onJoinRoom:vi.fn()}
+  const {rerender}=render(<ThemeProvider><WelcomeScreen {...props} connectionStatus="connecting" /></ThemeProvider>)
+  expect(screen.getByLabelText('昵称')).toBeEnabled()
+  expect(screen.getByRole('button',{name:'创建新房间'})).toBeDisabled()
+  expect(screen.getByRole('button',{name:'观察练习'})).toBeDisabled()
+  expect(screen.getByRole('button',{name:'加入房间'})).toBeDisabled()
+  expect(screen.getByRole('status')).toHaveTextContent('正在连接服务…')
+  rerender(<ThemeProvider><WelcomeScreen {...props} connectionStatus="connected" /></ThemeProvider>)
+  expect(screen.getByRole('button',{name:'创建新房间'})).toBeEnabled()
+  expect(screen.queryByText('正在连接服务…')).not.toBeInTheDocument()
+})
