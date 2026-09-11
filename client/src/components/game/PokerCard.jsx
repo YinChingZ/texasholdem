@@ -24,9 +24,9 @@ export default function PokerCard({ card, compact = false, mini = false, hidden 
       <span className={styles.inner}>
         <span className={styles.back} aria-hidden="true" />
         <span className={`${styles.face} ${suit.red ? styles.red : ''}`}>
-          <span>{card.rank}<small>{suit.symbol}</small></span>
-          <strong>{suit.symbol}</strong>
-          <em aria-hidden="true">{card.rank}<small>{suit.symbol}</small></em>
+          <span data-card-part="top-index">{card.rank}<small>{suit.symbol}</small></span>
+          <strong data-card-part="suit">{suit.symbol}</strong>
+          <em data-card-part="bottom-index" aria-hidden="true">{card.rank}<small>{suit.symbol}</small></em>
         </span>
       </span>
     </span>
