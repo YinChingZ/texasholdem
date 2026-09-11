@@ -37,8 +37,11 @@ describe('LobbyScreen', () => {
   it('shows host settings and enables starting with enough players', async () => {
     const user = userEvent.setup()
     const { props } = renderLobby('lobby-host')
+    expect(screen.queryByRole('heading', { name: /牌局设置/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '设置', exact: true }))
     expect(screen.getByRole('heading', { name: /牌局设置/ })).toBeInTheDocument()
-    const start = screen.getByRole('button', { name: /开始牌局/ })
+    await user.keyboard('{Escape}')
+    const start = screen.getByRole('button', { name: /开始游戏/ })
     expect(start).toBeEnabled()
     await user.click(start)
     expect(props.onStartGame).toHaveBeenCalledOnce()
@@ -46,7 +49,7 @@ describe('LobbyScreen', () => {
 
   it('keeps a one-player room from starting', () => {
     renderLobby('lobby-one')
-    expect(screen.getByRole('button', { name: /开始牌局/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /开始游戏/ })).toBeDisabled()
     expect(screen.getByText('等待牌友加入')).toBeInTheDocument()
   })
 
@@ -60,8 +63,10 @@ describe('LobbyScreen', () => {
     expect(props.onSwitchToSpectator).toHaveBeenCalledOnce()
   })
 
-  it('disables invalid chip settings', () => {
+  it('disables invalid chip settings', async () => {
+    const user = userEvent.setup()
     renderLobby('lobby-host', { initialChips: 100 })
+    await user.click(screen.getByRole('button', { name: '设置', exact: true }))
     expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
     expect(screen.getByText(/请输入 500/)).toBeInTheDocument()
   })

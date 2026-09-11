@@ -10,7 +10,7 @@ test('host and guest can create, join, and start a real room', async ({ browser 
     await host.goto('/')
     await host.getByLabel('昵称').fill('房主')
     await host.getByRole('button', { name: /创建新房间/ }).click()
-    await expect(host.getByRole('heading', { name: /等待更多牌友/ })).toBeVisible()
+    await expect(host.getByText('等待牌友加入')).toBeVisible()
     const roomId = await host.getByTestId('room-code').textContent()
 
     await guest.goto('/')
@@ -18,9 +18,9 @@ test('host and guest can create, join, and start a real room', async ({ browser 
     await guest.getByLabel('房间号').fill(roomId)
     await guest.getByRole('button', { name: /加入房间/ }).click()
 
-    await expect(host.getByText('2/8 玩家')).toBeVisible()
-    await expect(guest.getByRole('heading', { name: /牌友已到/ })).toBeVisible()
-    await host.getByRole('button', { name: /开始牌局/ }).click()
+    await expect(host.getByRole('heading', { name: '玩家 2/8' })).toBeVisible()
+    await expect(guest.getByRole('heading', { name: '玩家 2/8' })).toBeVisible()
+    await host.getByRole('button', { name: /开始游戏/ }).click()
 
     await expect(host.locator('.game-main-container')).toBeVisible()
     await expect(guest.locator('.game-main-container')).toBeVisible()
@@ -53,7 +53,7 @@ for (const fixture of lobbyVisuals) {
   test(`@visual lobby ${fixture.name}`, async ({ page }) => {
     await page.setViewportSize({ width: fixture.width, height: fixture.height })
     await page.goto(`/?uiPreview=${fixture.state}&theme=${fixture.theme}`)
-    await expect(page.getByRole('heading', { name: /房间名册/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /玩家/ })).toBeVisible()
     await expect(page).toHaveScreenshot(`lobby-${fixture.name}.png`, {
       animations: 'disabled',
       fullPage: true,

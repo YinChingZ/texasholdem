@@ -1,94 +1,22 @@
-import { useEffect, useState } from 'react'
-import {
-  Check,
-  Copy,
-  Crown,
-  DoorOpen,
-  Eye,
-  EyeOff,
-  Lock,
-  MessageCircle,
-  Settings,
-  ShieldCheck,
-  Users,
-  X,
-} from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Check, Copy, Crown, DoorOpen, Eye, Lock, MessageCircle, Settings, SlidersHorizontal, Users } from 'lucide-react'
+import PlayerAvatar from '../components/ui/PlayerAvatar'
 import ChatPanel from '../components/lobby/ChatPanel'
-import { Badge, Button, ConfirmDialog, Toast } from '../components/ui/Primitives'
+import { Button, ConfirmDialog, Toast } from '../components/ui/Primitives'
+import MobileSheet from '../components/ui/MobileSheet'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import { useChat } from '../hooks/useChat'
-import { useMediaQuery } from '../hooks/useMediaQuery'
+import { formatChips } from '../components/game/tableLayout'
 import styles from './LobbyScreen.module.css'
-
 const confirmations = {
-  leave: {
-    title: '离开房间？',
-    description: '你将退出当前房间，需要使用房间号才能再次加入。',
-    confirmLabel: '确认离开',
-  },
-  close: {
-    title: '关闭房间？',
-    description: '房间内所有玩家都会被移出，此操作无法撤销。',
-    confirmLabel: '关闭房间',
-  },
-  spectate: {
-    title: '切换为旁观者？',
-    description: '切换后你将离开玩家座位，但仍可以观看和聊天。',
-    confirmLabel: '开始旁观',
-  },
+  leave: { title: '离开房间？', description: '你将退出当前房间，需要使用房间号才能再次加入。', confirmLabel: '确认离开' },
+  close: { title: '关闭房间？', description: '房间内所有玩家都会被移出，此操作无法撤销。', confirmLabel: '关闭房间' },
+  spectate: { title: '切换为旁观者？', description: '切换后你将离开玩家座位，但仍可以观看和聊天。', confirmLabel: '开始旁观' },
 }
-
-function ParticipantList({ players, spectators, creatorId, currentUserId }) {
-  return (
-    <section className={styles.roster} aria-labelledby="participant-title">
-      <header className={styles.sectionHeader}>
-        <div>
-          <p className={styles.kicker}>参与者</p>
-          <h2 id="participant-title">房间名册</h2>
-        </div>
-        <Badge tone={players.length >= 2 ? 'success' : 'neutral'}>{players.length}/8 玩家</Badge>
-      </header>
-
-      <ol className={styles.playerList}>
-        {players.map((player, index) => (
-          <li key={player.id}>
-            <span className={styles.seat}>{String(index + 1).padStart(2, '0')}</span>
-            <span className={styles.avatar}>{player.nickname?.slice(0, 1).toUpperCase()}</span>
-            <span className={styles.participantName}>
-              <strong>{player.nickname}</strong>
-              <small>{player.id === currentUserId ? '你' : '玩家'}</small>
-            </span>
-            {player.id === creatorId && <span className={styles.owner}><Crown size={14} />房主</span>}
-            <span className={styles.ready}><Check size={14} />已入座</span>
-          </li>
-        ))}
-        {Array.from({ length: Math.max(0, 2 - players.length) }).map((_, index) => (
-          <li className={styles.emptySeat} key={`empty-${index}`}>
-            <span className={styles.seat}>{String(players.length + index + 1).padStart(2, '0')}</span>
-            <span>等待牌友加入</span>
-          </li>
-        ))}
-      </ol>
-
-      {spectators.length > 0 && (
-        <div className={styles.spectators}>
-          <Eye aria-hidden="true" size={15} />
-          <span>旁观</span>
-          {spectators.map((spectator) => <strong key={spectator.id}>{spectator.nickname}</strong>)}
-        </div>
-      )}
-    </section>
-  )
-}
-
 function HostSettings({ showAllHands, initialChips, chipsValid, onShowAllHandsChange, onInitialChipsChange, onSaveChips }) {
   return (
-    <section className={styles.settings} aria-labelledby="settings-title">
-      <header className={styles.sectionHeader}>
-        <div>
-          <p className={styles.kicker}>房主权限</p>
-          <h2 id="settings-title"><Settings size={17} />牌局设置</h2>
-        </div>
-      </header>
+    <section className={styles.settings} aria-label="牌局参数">
+
 
       <label className={styles.settingRow}>
         <span>
@@ -112,144 +40,50 @@ function HostSettings({ showAllHands, initialChips, chipsValid, onShowAllHandsCh
   )
 }
 
-export default function LobbyScreen({
-  room,
-  gameState,
-  currentUserId,
-  isRoomCreator,
-  isSpectator,
-  showAllHands,
-  initialChips,
-  copySuccess,
-  onCopyRoomId,
-  onShowAllHandsChange,
-  onInitialChipsChange,
-  onSaveChips,
-  onStartGame,
-  onLeaveRoom,
-  onCloseRoom,
-  onSwitchToPlayer,
-  onSwitchToSpectator,
-}) {
+export default function LobbyScreen({ room, gameState, currentUserId, isRoomCreator, isSpectator, showAllHands, initialChips, copySuccess, onCopyRoomId, onShowAllHandsChange, onInitialChipsChange, onSaveChips, onStartGame, onLeaveRoom, onCloseRoom, onSwitchToPlayer, onSwitchToSpectator }) {
   const players = gameState.players ?? []
-  const spectators = gameState.spectators ?? []
-  const isCompact = useMediaQuery('(max-width: 900px)')
-  const [chatOpen, setChatOpen] = useState(false)
+  const spectators = Object.values(gameState.spectators ?? {})
+  const [panel, setPanel] = useState(null)
   const [confirmation, setConfirmation] = useState(null)
-  const chatVisible = !isCompact || chatOpen
-  const chat = useChat(room.id, chatVisible)
-  const hasEnoughPlayers = players.length >= 2
-  const canStart = isRoomCreator && hasEnoughPlayers
-  const parsedChips = Number(initialChips)
-  const chipsValid = Number.isFinite(parsedChips) && parsedChips >= 500 && parsedChips <= 50000
-
-  useEffect(() => {
-    if (!chatOpen) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setChatOpen(false)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [chatOpen])
-
-  const confirmActions = {
-    leave: onLeaveRoom,
-    close: onCloseRoom,
-    spectate: onSwitchToSpectator,
-  }
-  const confirmationCopy = confirmation ? confirmations[confirmation] : null
-
-  return (
-    <main className={styles.shell}>
-      <Toast message={copySuccess ? '房间号已复制，可以发给牌友了。' : ''} />
-
-      <header className={styles.topbar}>
-        <div className={styles.brand}>德州扑克 <span>/ 等待大厅</span></div>
-        <div className={styles.roomCode}>
-          <span>房间</span>
-          <strong data-testid="room-code">{room.id}</strong>
-          <button type="button" onClick={onCopyRoomId} aria-label="复制房间号">
-            {copySuccess ? <Check size={16} /> : <Copy size={16} />}
-          </button>
-        </div>
-        <Badge tone={isRoomCreator ? 'gold' : isSpectator ? 'neutral' : 'success'}>
-          {isRoomCreator ? <><Crown size={13} />房主</> : isSpectator ? <><Eye size={13} />旁观者</> : <><ShieldCheck size={13} />玩家</>}
-        </Badge>
-      </header>
-
-      <div className={styles.layout}>
-        <div className={styles.mainColumn}>
-          <section className={styles.hero}>
-            <div>
-              <p className={styles.kicker}>房间已建立</p>
-              <h1>{hasEnoughPlayers ? '牌友已到，可以开局' : '正在等待更多牌友'}</h1>
-              <p>{isRoomCreator ? '邀请至少一位牌友，准备好后由你开始牌局。' : '房主准备好后将开始牌局，你可以先在聊天区交流。'}</p>
-            </div>
-            <div className={styles.playerCount}>
-              <Users aria-hidden="true" size={20} />
-              <strong>{players.length}</strong>
-              <span>位玩家</span>
-            </div>
-          </section>
-
-          <div className={styles.contentGrid}>
-            <ParticipantList players={players} spectators={spectators} creatorId={gameState.creator} currentUserId={currentUserId} />
-            {isRoomCreator && (
-              <HostSettings
-                showAllHands={showAllHands}
-                initialChips={initialChips}
-                chipsValid={chipsValid}
-                onShowAllHandsChange={onShowAllHandsChange}
-                onInitialChipsChange={onInitialChipsChange}
-                onSaveChips={onSaveChips}
-              />
-            )}
-          </div>
-
-          <section className={styles.actions} aria-label="大厅操作">
-            <div className={styles.startArea}>
-              <Button type="button" disabled={!canStart} onClick={onStartGame}>
-                {isRoomCreator ? `开始牌局 · ${players.length} 位` : '等待房主开始'}
-              </Button>
-              {players.length < 2 && <span>至少需要 2 位玩家。</span>}
-            </div>
-            <div className={styles.secondaryActions}>
-              {isSpectator && !isRoomCreator && <Button variant="secondary" onClick={onSwitchToPlayer}><Users size={16} />加入对局</Button>}
-              {!isSpectator && !isRoomCreator && <Button variant="ghost" onClick={() => setConfirmation('spectate')}><Eye size={16} />旁观</Button>}
-              <Button variant="ghost" onClick={() => setConfirmation('leave')}><DoorOpen size={16} />退出</Button>
-              {isRoomCreator && <Button variant="ghost" onClick={() => setConfirmation('close')}><Lock size={16} />关闭房间</Button>}
-            </div>
-          </section>
-        </div>
-
-        {isCompact && chatOpen && <button className={styles.sheetBackdrop} type="button" aria-label="关闭聊天" onClick={() => setChatOpen(false)} />}
-        <aside className={`${styles.chatColumn} ${chatOpen ? styles.chatOpen : ''}`} role={isCompact ? 'dialog' : 'complementary'} aria-modal={isCompact ? 'true' : undefined} aria-label="牌桌聊天">
-          <div className={styles.sheetHeader}>
-            <strong>牌桌聊天</strong>
-            <button type="button" onClick={() => setChatOpen(false)} aria-label="关闭聊天"><X size={20} /></button>
-          </div>
-          <ChatPanel messages={chat.messages} draft={chat.draft} onDraftChange={chat.setDraft} onSend={chat.sendMessage} />
-        </aside>
+  const closePanel = useCallback(() => setPanel(null), [])
+  const chat = useChat(room.id, panel === 'chat')
+  const chipsValid = Number.isFinite(Number(initialChips)) && Number(initialChips) >= 500 && Number(initialChips) <= 50000
+  const confirmActions = { leave: onLeaveRoom, close: onCloseRoom, spectate: onSwitchToSpectator }
+  const requestConfirmation = kind => { setPanel(null); setConfirmation(kind) }
+  const confirmationCopy = confirmations[confirmation]
+  return <main className={styles.shell}>
+    <Toast message={copySuccess ? '房间号已复制' : ''} />
+    <header className={styles.topbar}>
+      <strong>德州扑克</strong>
+      <div className={styles.tools}>
+        <button aria-label={chat.unreadCount ? `聊天，${chat.unreadCount} 条未读` : '聊天'} onClick={() => setPanel('chat')}><MessageCircle size={20} />{chat.unreadCount > 0 && <b>{chat.unreadCount}</b>}</button>
+        <button aria-label="房间菜单" onClick={() => setPanel('menu')}><SlidersHorizontal size={20} /></button>
       </div>
-
-      {isCompact && (
-        <button className={styles.mobileChat} type="button" onClick={() => setChatOpen(true)}>
-          <MessageCircle size={18} />聊天
-          {chat.unreadCount > 0 && <span>{chat.unreadCount}</span>}
-        </button>
-      )}
-
-      <ConfirmDialog
-        open={Boolean(confirmationCopy)}
-        title={confirmationCopy?.title}
-        description={confirmationCopy?.description}
-        confirmLabel={confirmationCopy?.confirmLabel}
-        onClose={() => setConfirmation(null)}
-        onConfirm={() => {
-          confirmActions[confirmation]?.()
-          setConfirmation(null)
-        }}
-      />
-    </main>
-  )
+    </header>
+    <div className={styles.mainColumn}>
+      <section className={styles.roomHeading}>
+        <div><span>房间号</span><h1 data-testid="room-code">{room.id}</h1></div>
+        <Button variant="ghost" onClick={onCopyRoomId} aria-label="复制房间号">{copySuccess ? <Check size={18} /> : <Copy size={18} />}复制邀请</Button>
+      </section>
+      <section className={styles.roster} aria-labelledby="participant-title">
+        <header><h2 id="participant-title">玩家 <span>{players.length}/8</span></h2></header>
+        <ul className={styles.playerList}>{players.map(player => <li key={player.id}>
+          <PlayerAvatar name={player.nickname} className={styles.avatar} />
+          <strong title={player.nickname}>{player.nickname}{player.connected === false && <small>离线</small>}{player.id === currentUserId && <small>你</small>}</strong>
+          {player.id === gameState.creator && <span className={styles.owner}><Crown size={14} />房主</span>}
+        </li>)}</ul>
+        {players.length < 2 && <p className={styles.emptySeat}>等待牌友加入</p>}
+        {spectators.length > 0 && <div className={styles.spectators}><Eye size={16} /><span>旁观</span>{spectators.map(player => <span key={player.id}>{player.nickname}</span>)}</div>}
+      </section>
+      <div className={styles.settingsSummary}><span>初始筹码 <strong>{formatChips(gameState.settings?.initialChips ?? initialChips)}</strong></span><span>{showAllHands ? '结算全部亮牌' : '仅赢家亮牌'}</span>{isRoomCreator && <Button variant="ghost" onClick={() => setPanel('settings')}><Settings size={16} />设置</Button>}</div>
+      <section className={styles.actions} aria-label="大厅操作">
+        <div className={styles.startArea}><Button disabled={gameState.allowedActions ? !gameState.allowedActions.start : !isRoomCreator || players.length < 2} onClick={onStartGame}>{isRoomCreator ? '开始游戏' : '等待房主开始'}</Button>{players.length < 2 && <span>至少需要 2 位玩家</span>}</div>
+        {(isSpectator || !isRoomCreator) && (isSpectator ? <Button variant="ghost" onClick={onSwitchToPlayer}><Users size={16} />加入对局</Button> : <Button variant="ghost" onClick={() => requestConfirmation('spectate')}><Eye size={16} />旁观</Button>)}
+      </section>
+    </div>
+    <MobileSheet open={panel === 'chat'} title="牌桌聊天" onClose={closePanel}><ChatPanel messages={chat.messages} draft={chat.draft} onDraftChange={chat.setDraft} onSend={chat.sendMessage} /></MobileSheet>
+    <MobileSheet open={panel === 'settings'} title="牌局设置" onClose={closePanel}>{isRoomCreator && <HostSettings showAllHands={showAllHands} initialChips={initialChips} chipsValid={chipsValid} onShowAllHandsChange={onShowAllHandsChange} onInitialChipsChange={onInitialChipsChange} onSaveChips={onSaveChips} />}</MobileSheet>
+    <MobileSheet open={panel === 'menu'} title="房间菜单" onClose={closePanel}><div className={styles.menu}><ThemeToggle /><Button variant="ghost" onClick={() => requestConfirmation('leave')}><DoorOpen size={16} />退出</Button>{isRoomCreator && <Button variant="ghost" onClick={() => requestConfirmation('close')}><Lock size={16} />关闭房间</Button>}</div></MobileSheet>
+    <ConfirmDialog open={Boolean(confirmationCopy)} title={confirmationCopy?.title} description={confirmationCopy?.description} confirmLabel={confirmationCopy?.confirmLabel} onClose={() => setConfirmation(null)} onConfirm={() => { confirmActions[confirmation]?.(); setConfirmation(null) }} />
+  </main>
 }

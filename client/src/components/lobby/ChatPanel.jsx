@@ -5,13 +5,6 @@ import styles from './ChatPanel.module.css'
 export default function ChatPanel({ messages, draft, onDraftChange, onSend }) {
   return (
     <section className={styles.panel} aria-label="牌桌聊天">
-      <header>
-        <MessageCircle aria-hidden="true" size={18} />
-        <div>
-          <h2>牌桌聊天</h2>
-          <p>与房间内的玩家交流</p>
-        </div>
-      </header>
 
       <div className={styles.messages} aria-live="polite">
         {messages.length === 0 ? (

@@ -1,19 +1,17 @@
-.board { position: absolute; z-index: 1; left: 50%; top: 48%; display: grid; justify-items: center; gap: 10px; transform: translate(-50%, -50%); }
-.phase { padding: 4px 8px; border: 1px solid rgba(244, 239, 226, .24); border-radius: 999px; color: var(--table-text-muted); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
-.cards { display: flex; justify-content: center; gap: clamp(4px, .7vw, 9px); }
-.pot { display: flex; align-items: center; gap: 6px; color: var(--table-text-muted); font-size: 10px; }
-.pot strong { display: inline-block; color: var(--color-gold); font: 750 17px/1 var(--font-mono); }
-.potPulse { animation: potPulse 420ms var(--ease-standard); }
+.board { position: absolute; z-index: 1; display: flex; gap: 8px; transform: translate(-50%, -50%); }
+.pot { position: absolute; z-index: 2; display: flex; align-items: baseline; gap: 9px; transform: translate(-50%, -50%); white-space: nowrap; color: #d5e5db; font-size: 14px; }
+.pot strong { color: #fff; font: 650 32px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+.pot button { min-height: 44px; border: 0; border-radius: 6px; padding: 4px 8px; background: #102c25; color: #f5faf7; font-size: 12px; cursor: pointer; }
+.details { padding: 20px; }
+.details p { display: flex; align-items: center; gap: 8px; }
+.details strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .board { gap: 4px; } .board > span { width: 42px; } .pot { font-size: 12px; gap: 6px; } .pot strong { font-size: 24px; } .pot button { position: absolute; top: -42px; left: 50%; transform: translateX(-50%); min-height: 44px; padding: 2px 6px; } }
 
-@keyframes potPulse {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.18); }
-  100% { transform: scale(1); }
-}
-.pot small { padding-left: 6px; border-left: 1px solid var(--table-seat-border); color: var(--table-text-muted); font-size: 9px; }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 701px) { .board { gap: 4px; } .board > span { width: 38px; } .pot strong { font-size: 24px; } .pot { font-size: 12px; } }
 
-@media (max-width: 700px) {
-  .board { top: 46%; gap: 6px; }
-  .phase { display: none; }
-  .pot small, .pot > span { display: none; }
-}
+.pot { flex-direction: column; align-items: center; gap: 5px; padding: 8px 20px; color: #c2d1c9; font-size: 11px; letter-spacing: .08em; }
+.pot strong { font-weight: 600; letter-spacing: -.03em; text-shadow: none; }
+.pot button { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); letter-spacing: 0; background: #123238; }
+@media(max-width:700px) { .pot { gap: 4px; padding: 4px 10px; } .pot button { left: 50%; top: -40px; transform: translateX(-50%); } }
+
+.pot { color: var(--color-text-secondary); } .pot strong { color: var(--color-text); }

@@ -1,4 +1,4 @@
-import { Crown, DoorOpen, RotateCcw, Trophy } from 'lucide-react'
+import { Crown, DoorOpen, RotateCcw } from 'lucide-react'
 import ModalDialog from './ui/ModalDialog'
 import { Button } from './ui/Primitives'
 import { rankPlayers } from './resultModels'
@@ -18,21 +18,11 @@ export default function Leaderboard({ players, isRoomCreator, onNewGame, onLeave
   return (
     <ModalDialog
       title="最终排行榜"
-      eyebrow="Game complete"
       description={`${sortedPlayers.length} 位玩家 · 共 ${totalChips.toLocaleString('zh-CN')} 筹码`}
       closeLabel="关闭排行榜"
       onClose={onClose}
       footer={footer}
     >
-      <div className={styles.summary}>
-        <Trophy size={20} />
-        <div>
-          <span>本局冠军</span>
-          <strong>{sortedPlayers[0]?.nickname ?? '暂无玩家'}</strong>
-        </div>
-        {sortedPlayers[0] && <b>{Number(sortedPlayers[0].chips).toLocaleString('zh-CN')}</b>}
-      </div>
-
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <caption className={styles.srOnly}>按剩余筹码从高到低排列的玩家排行榜</caption>

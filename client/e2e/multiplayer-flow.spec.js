@@ -39,7 +39,7 @@ test('双人对局：加注气泡、翻牌揭示与延迟结算', async ({ brows
   await expect(pageB.getByTestId('room-code')).toHaveText(roomId)
 
   // A 开始牌局
-  await pageA.getByRole('button', { name: /开始牌局/ }).click()
+  await pageA.getByRole('button', { name: /开始游戏/ }).click()
   await expect(pageA.getByTestId('table-stage')).toBeVisible()
   await expect(pageB.getByTestId('table-stage')).toBeVisible()
 
@@ -84,7 +84,7 @@ test('reduced-motion 下结算立即弹出、无动画等待', async ({ browser 
   await enterTable(pageB, '静态乙')
   await pageB.getByLabel('房间号').fill(roomId)
   await pageB.getByRole('button', { name: /加入房间/ }).click()
-  await pageA.getByRole('button', { name: /开始牌局/ }).click()
+  await pageA.getByRole('button', { name: /开始游戏/ }).click()
 
   const first = await actorPage([pageA, pageB])
   await first.getByRole('button', { name: '弃牌' }).click()

@@ -66,3 +66,10 @@
   .toast { inset: var(--space-4) var(--space-4) auto; }
   .dialogActions .button { flex: 1; }
 }
+
+.button { border-radius: 10px; }
+.primary { background: linear-gradient(135deg,var(--color-gold-control-hover),var(--color-gold-control)); border: 1px solid color-mix(in srgb,var(--color-gold-control) 65%,white); box-shadow: 0 3px 0 #0002; }
+.primary:hover:not(:disabled) { background: var(--color-gold-control-hover); box-shadow: 0 3px 0 #0002; }
+.input { border-radius: 10px; border-color: var(--color-border); }
+
+.primary { background: var(--color-gold-control); border-color: transparent; box-shadow: none; } .primary:hover:not(:disabled) { background: var(--color-gold-control-hover); box-shadow: none; }

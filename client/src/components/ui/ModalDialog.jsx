@@ -1,11 +1,13 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import styles from './ModalDialog.module.css'
 
-const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [href], [tabindex]:not([tabindex="-1"])'
 
 export default function ModalDialog({
   open = true,
+  role = 'dialog',
   title,
   eyebrow,
   description,
@@ -19,6 +21,8 @@ export default function ModalDialog({
   const descriptionId = useId()
   const panelRef = useRef(null)
   const closeRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (!open) return undefined
@@ -30,11 +34,11 @@ export default function ModalDialog({
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose?.()
+        onCloseRef.current?.()
         return
       }
       if (event.key !== 'Tab' || !panelRef.current) return
-      const focusable = [...panelRef.current.querySelectorAll(focusableSelector)]
+      const focusable = [...panelRef.current.querySelectorAll(focusableSelector)].filter(element => !element.closest('details:not([open])') || element.tagName === 'SUMMARY')
       if (!focusable.length) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -53,17 +57,17 @@ export default function ModalDialog({
       document.body.style.overflow = previousOverflow
       if (returnTarget instanceof HTMLElement) returnTarget.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div className={styles.layer}>
       <button className={styles.backdrop} type="button" aria-label={closeLabel} onClick={onClose} />
       <section
         ref={panelRef}
         className={`${styles.dialog} ${styles[size] ?? ''}`}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
@@ -81,6 +85,6 @@ export default function ModalDialog({
         <div className={styles.body}>{children}</div>
         {footer && <footer className={styles.footer}>{footer}</footer>}
       </section>
-    </div>
+    </div>, document.body
   )
 }

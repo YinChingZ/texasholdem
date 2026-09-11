@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import styles from './MobileSheet.module.css'
@@ -7,6 +8,8 @@ const focusableSelector = 'button:not([disabled]), input:not([disabled]), select
 export default function MobileSheet({ open, title, onClose, children }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (!open) return undefined
@@ -18,7 +21,7 @@ export default function MobileSheet({ open, title, onClose, children }) {
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current?.()
         return
       }
       if (event.key !== 'Tab') return
@@ -41,11 +44,11 @@ export default function MobileSheet({ open, title, onClose, children }) {
       document.body.style.overflow = previousOverflow
       if (returnTarget instanceof HTMLElement) returnTarget.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div className={styles.layer}>
       <button className={styles.backdrop} type="button" aria-label={`关闭${title}`} onClick={onClose} />
       <section ref={panelRef} className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="mobile-sheet-title">
@@ -56,6 +59,6 @@ export default function MobileSheet({ open, title, onClose, children }) {
         </header>
         <div className={styles.content}>{children}</div>
       </section>
-    </div>
+    </div>, document.body
   )
 }

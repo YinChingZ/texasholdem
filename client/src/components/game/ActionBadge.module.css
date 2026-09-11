@@ -1,37 +1,9 @@
-.badge {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border: 1px solid var(--table-seat-border);
-  border-radius: 999px;
-  background: var(--table-seat-strong);
-  color: var(--table-text);
-  font: 750 11px/1 var(--font-sans);
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translateX(-50%);
-  animation: badgePop 320ms var(--ease-standard) both, badgeFade 280ms var(--ease-standard) 1120ms forwards;
-}
-.badge strong { font: 750 11px/1 var(--font-mono); }
-
-.fold { border-color: var(--color-danger); color: var(--color-danger); }
-.check { color: var(--table-text); }
-.call { border-color: var(--color-success); color: var(--color-success); }
-.bet, .raise { border-color: var(--color-gold); color: var(--color-gold); }
-.allin { border-color: var(--color-danger); background: var(--color-danger-control); color: var(--color-on-danger); }
-.win { border-color: var(--color-gold); background: var(--color-gold-control); color: var(--color-on-gold); }
-
-@keyframes badgePop {
-  0% { opacity: 0; transform: translateX(-50%) translateY(6px) scale(.6); }
-  70% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
-  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-}
-
-@keyframes badgeFade {
-  to { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(.94); }
-}
+.badge { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--table-text); font: 600 11px/12px var(--font-sans); white-space: nowrap; animation: actionIn 160ms ease-out both; }
+.badge strong { font: inherit; font-variant-numeric: tabular-nums; }
+.fold { color: #bfcbca; }
+.check,.call { color: #bfe6d1; }
+.bet,.raise { color: #d6eab9; }
+.allin { color: #ffca84; }
+.win { color: #f5d98d; }
+@keyframes actionIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media(max-width:700px), (orientation:landscape) and (max-height:500px) { .badge { gap: 3px; font-size: 10px; } }

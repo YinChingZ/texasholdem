@@ -1,16 +1,17 @@
+import { formatChips } from './tableLayout'
 import styles from './ChipFlight.module.css'
 
-const POT_X = '50%'
-const POT_Y = '48%'
 
 // 筹码飞行：下注时从座位飞向底池（toPot），派彩时从底池飞向赢家座位（toSeat）。
 // 座位坐标复用 arrangePlayers 计算出的百分比位置，无需测量 DOM。
-export default function ChipFlight({ flight, placements }) {
+export default function ChipFlight({ flight, placements, pot }) {
   const placement = placements.find((item) => item.player.id === flight.playerId)
   if (!placement) return null
 
-  const seatX = `${placement.x}%`
-  const seatY = `${placement.y}%`
+  const seatX = `${flight.direction === 'toSeat' ? placement.x : placement.bet.x}%`
+  const seatY = `${flight.direction === 'toSeat' ? placement.y : placement.bet.y}%`
+  const POT_X = `${pot.x}%`
+  const POT_Y = `${pot.y}%`
   const [fromX, fromY, toX, toY] = flight.direction === 'toSeat'
     ? [POT_X, POT_Y, seatX, seatY]
     : [seatX, seatY, POT_X, POT_Y]
@@ -24,7 +25,7 @@ export default function ChipFlight({ flight, placements }) {
       <span className={styles.chips}>
         <i /><i /><i />
       </span>
-      {flight.amount > 0 && <small>{flight.amount}</small>}
+      {flight.amount > 0 && <small>{formatChips(flight.amount)}</small>}
     </span>
   )
 }

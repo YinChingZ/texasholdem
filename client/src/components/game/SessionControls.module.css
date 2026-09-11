@@ -1,0 +1,4 @@
+.bar { display: flex; flex-direction: column; gap: .4rem; padding: .5rem .75rem; border-top: 1px solid var(--color-border, #8884); }
+.status, .buttons { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .5rem; }
+.status { font-size: .8rem; color: var(--color-text-muted, inherit); }
+.buttons button { min-height: 36px; }

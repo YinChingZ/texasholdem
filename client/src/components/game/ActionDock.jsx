@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, CircleDollarSign } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { formatChips } from './tableLayout'
 import { soundManager } from '../../utils/soundManager'
 import { deriveActionState, getQuickRaiseOptions } from './gameState'
 import styles from './ActionDock.module.css'
@@ -8,6 +9,7 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
   const actionState = deriveActionState(player, gameState)
   const [raiseOpen, setRaiseOpen] = useState(false)
   const [raiseAmount, setRaiseAmount] = useState(actionState.minRaiseAmount)
+  const validRaise = Number.isInteger(raiseAmount) && raiseAmount >= actionState.minRaiseAmount && raiseAmount <= actionState.maxRaiseAmount
   const quickOptions = getQuickRaiseOptions(actionState, gameState?.mainPot ?? 0)
 
   const act = (action, amount) => {
@@ -21,32 +23,38 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
   }, [actionState.isPlayerTurn, actionState.minRaiseAmount, actionState.maxRaiseAmount])
 
   if (isSpectator) {
-    return <div className={styles.status}><strong>旁观模式</strong><span>你可以观看牌局与参与聊天。</span></div>
+    return <div className={styles.status}><strong>旁观模式</strong></div>
   }
 
   if (!player || gameState?.gameState === 'GAME_OVER') {
-    return <div className={styles.status}><strong>本局已结束</strong><span>等待房主开始下一局。</span></div>
+    return <div className={styles.status}><strong>本局已结束</strong><span>等待新场次开始。</span></div>
   }
 
-  if (!actionState.isPlayerTurn) {
+  if (['SHOWDOWN', 'SHOWDOWN_COMPLETE'].includes(gameState?.gameState)) {
+    return <div className={styles.status}><strong>{gameState.gameState === 'SHOWDOWN' ? '正在摊牌' : '本手结束'}</strong><span>等待下一手开始</span></div>
+  }
+
+  if (player.status === 'all-in') return <div className={styles.status}><strong>你已全押</strong><span>等待本手结算</span></div>
+
+  if (!actionState.isPlayerTurn || player.status === 'folded' || !['PREFLOP', 'FLOP', 'TURN', 'RIVER'].includes(gameState?.gameState)) {
     const activePlayer = gameState.players?.find((item) => item.id === gameState.currentPlayerTurn)
     return (
       <div className={styles.status} data-testid="waiting-action">
         <strong>等待 {activePlayer?.nickname ?? '其他玩家'} 行动</strong>
-        <span>最高下注 {actionState.currentBet}，你的筹码 {actionState.playerChips}。</span>
+
       </div>
     )
   }
 
   const middleAction = actionState.canCheck
     ? { label: '过牌', action: 'check' }
-    : { label: actionState.isAllInCall ? `全押 ${actionState.playerChips}` : `跟注 ${Math.min(actionState.callAmount, actionState.playerChips)}`, action: 'call' }
+    : { label: actionState.isAllInCall ? `全押 ${formatChips(actionState.playerChips)}` : `跟注 ${formatChips(Math.min(actionState.callAmount, actionState.playerChips))}`, action: 'call' }
 
   return (
     <section className={styles.dock} aria-label="玩家操作">
       <div className={styles.prompt}>
         <span>轮到你行动</span>
-        <small>最高下注 {actionState.currentBet}</small>
+        <small>需跟注 {formatChips(Math.min(actionState.callAmount, actionState.playerChips))}</small>
       </div>
 
       <div className={styles.coreActions}>
@@ -67,11 +75,14 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
         <div className={styles.raisePanel}>
           <div className={styles.quickRaises}>
             {quickOptions.map((option) => (
-              <button type="button" key={option.amount} onClick={() => setRaiseAmount(option.amount)}>{option.label}<span>{option.amount}</span></button>
+              <button type="button" key={option.amount} onClick={() => setRaiseAmount(option.amount)}>{option.label}<span>{formatChips(option.amount)}</span></button>
             ))}
           </div>
+          <label className={styles.numberField}>额外加注
+            <input aria-label="额外加注金额" type="number" min={actionState.minRaiseAmount} max={actionState.maxRaiseAmount} step="1" value={raiseAmount} onChange={event => setRaiseAmount(event.target.value === '' ? '' : Number(event.target.value))} />
+          </label>
           <label className={styles.slider}>
-            <span>加注金额 <strong><CircleDollarSign size={14} />{raiseAmount}</strong></span>
+            <span>额外加注 <strong>{formatChips(raiseAmount)}</strong></span>
             <input
               aria-label="加注金额"
               type="range"
@@ -80,10 +91,10 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
               value={raiseAmount}
               onChange={(event) => setRaiseAmount(Number(event.target.value))}
             />
-            <small><span>{actionState.minRaiseAmount}</span><span>{actionState.maxRaiseAmount}</span></small>
+            <small><span>{formatChips(actionState.minRaiseAmount)}</span><span>{formatChips(actionState.maxRaiseAmount)}</span></small>
           </label>
-          <button className={styles.confirmRaise} type="button" onClick={() => act('raise', raiseAmount)}>
-            确认加注 {raiseAmount}
+          <button className={styles.confirmRaise} type="button" disabled={!validRaise} onClick={() => act('raise', raiseAmount)}>
+            确认加注 {formatChips(raiseAmount)}
           </button>
         </div>
       )}

@@ -8,7 +8,7 @@ const suits = {
 }
 
 // animate: false | 'flip'（翻面揭示，公共牌）| 'deal'（滑入，发底牌）
-export default function PokerCard({ card, compact = false, hidden = false, animate = false, delay = 0 }) {
+export default function PokerCard({ card, compact = false, mini = false, hidden = false, animate = false, delay = 0 }) {
   if (hidden || !card) {
     return <span className={`${styles.card} ${styles.placeholder} ${compact ? styles.compact : ''}`} aria-hidden="true" />
   }
@@ -17,7 +17,7 @@ export default function PokerCard({ card, compact = false, hidden = false, anima
   const animationClass = animate === 'flip' ? styles.flip : animate === 'deal' ? styles.deal : ''
   return (
     <span
-      className={`${styles.card} ${compact ? styles.compact : ''} ${animationClass}`}
+      className={`${styles.card} ${compact ? styles.compact : ''} ${animationClass} ${mini ? styles.mini : ''}`}
       style={delay > 0 ? { '--card-delay': `${delay}ms` } : undefined}
       aria-label={`${suit.name}${card.rank}`}
     >
@@ -26,6 +26,7 @@ export default function PokerCard({ card, compact = false, hidden = false, anima
         <span className={`${styles.face} ${suit.red ? styles.red : ''}`}>
           <span>{card.rank}<small>{suit.symbol}</small></span>
           <strong>{suit.symbol}</strong>
+          <em aria-hidden="true">{card.rank}<small>{suit.symbol}</small></em>
         </span>
       </span>
     </span>

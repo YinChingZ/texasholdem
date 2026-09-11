@@ -8,7 +8,7 @@
 .close { width: 44px; min-width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: transparent; color: var(--color-text-secondary); box-shadow: none; transform: none; }
 .close:hover, .close:focus { border-color: var(--color-gold); outline: 2px solid var(--color-gold); outline-offset: 1px; background: transparent; color: var(--color-gold); box-shadow: none; transform: none; }
 .content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.content > * { min-height: 100%; }
+.content > * { min-height: 0; }
 
 @media (max-width: 700px) {
   .sheet { left: 0; right: 0; top: auto; width: auto; height: min(84dvh, 720px); border-top: 1px solid var(--color-border-strong); border-left: 0; border-radius: 14px 14px 0 0; }

@@ -11,7 +11,7 @@ function getInitialTheme() {
   if (themes.has(previewTheme)) return previewTheme
 
   const savedTheme = window.localStorage.getItem(STORAGE_KEY)
-  return themes.has(savedTheme) ? savedTheme : 'light'
+  return themes.has(savedTheme) ? savedTheme : 'dark'
 }
 
 export function ThemeProvider({ children }) {

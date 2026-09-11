@@ -18,7 +18,7 @@ export function arrangePlayers(players = [], anchorId) {
   return ordered.slice(0, 8).map((player, index) => ({
     player,
     seatIndex: index,
-    x: slots[index][0],
+    x: 50 + (slots[index][0] - 50) * .87,
     y: slots[index][1],
   }))
 }

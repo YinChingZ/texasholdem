@@ -1,5 +1,6 @@
-import { createElement, useEffect } from 'react'
+import { createElement } from 'react'
 import styles from './Primitives.module.css'
+import ModalDialog from './ModalDialog'
 
 export function Button({ variant = 'primary', className = '', children, ...props }) {
   return (
@@ -42,34 +43,5 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
 }) {
-  useEffect(() => {
-    if (!open) return undefined
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  return (
-    <div className={styles.backdrop} role="presentation" onMouseDown={onClose}>
-      <section
-        className={styles.dialog}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-description"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 id="confirm-dialog-title">{title}</h2>
-        <p id="confirm-dialog-description">{description}</p>
-        <div className={styles.dialogActions}>
-          <Button variant="ghost" onClick={onClose} autoFocus>{cancelLabel}</Button>
-          <Button variant={tone} onClick={onConfirm}>{confirmLabel}</Button>
-        </div>
-      </section>
-    </div>
-  )
+  return <ModalDialog open={open} role="alertdialog" title={title} description={description} onClose={onClose} closeLabel="取消操作" footer={<><Button variant="ghost" onClick={onClose}>{cancelLabel}</Button><Button variant={tone} onClick={onConfirm}>{confirmLabel}</Button></>} />
 }

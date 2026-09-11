@@ -56,59 +56,19 @@ graph TD
 
 ### 后端 (Server)
 
-后端使用 Node.js 和 Express 构建，核心通信层由 Socket.IO 实现。
-
-- **`index.js` (服务器入口)**:
-    - 初始化 Express 应用和 HTTP 服务器。
-    - 启动 Socket.IO 服务器并配置 CORS 策略，以允许跨域连接。
-    - 管理游戏房间 (`rooms` Map)，处理房间的创建、加入和玩家断开连接的逻辑。
-    - 作为事件分发中心，监听来自客户端的各种事件（如 `createRoom`, `playerAction`），并调用相应的游戏逻辑。
-    - 广播游戏状态更新 (`gameStateUpdate`) 给房间内的所有玩家。
-
-- **`game.js` (核心游戏逻辑)**:
-    - **`Game` 类**: 这是游戏的核心，一个强大的状态机，负责管理一局游戏的完整生命周期。
-        - **状态管理**: 维护游戏状态 (`gameState`)，包括 `WAITING`, `PREFLOP`, `FLOP`, `TURN`, `RIVER`, `SHOWDOWN`。
-        - **玩家动作处理**: 包含处理 `fold`, `call`, `raise` 等玩家行为的核心方法 (`playerAction`)。
-        - **游戏流程控制**: 自动化处理发牌、下盲注、轮转玩家顺序、进入下一轮下注、处理边池 (`sidePots`) 和最终的摊牌 (`showdown`)。
-    - **`Player` 类**: 对玩家数据进行建模，包含 `id`, `nickname`, `chips` (筹码), `hand` (手牌), `status` (状态) 等属性。
-    - **`Deck` 和 `Card` 类**: 实现了标准的扑克牌和牌堆逻辑，包括创建、洗牌和发牌。
+- `index.js`：HTTP / Socket.IO 适配层，处理连接与命令确认。
+- `room-service.js`：房间、稳定玩家身份、场次、行动期限、自动续局和房主交接的统一入口，支持注入时钟测试。
+- `game.js`：发牌、下注、盲注、边池、摊牌与筹码结算。
 
 ### 前端 (Client)
 
-前端是一个使用 Vite 构建的 React 单页应用 (SPA)。
+`SessionClient` 分开处理网络连接和身份恢复，以完整权威快照更新 `SocketContext`。`GameTable` 协调欢迎、连接、大厅和牌桌；`useTableSequencer` 只负责展示动画，重连时丢弃旧队列。牌桌常驻自动续局、暂停、回到牌桌和查看上一手入口。
 
-- **组件化设计**: `GameTable` 只协调页面状态；欢迎、连接、大厅和游戏由独立 Screen 渲染，牌桌进一步拆分为 `TableStage`、`PlayerSeat`、`CommunityBoard`、`HeroPanel`、`ActionDock` 和 `GameSidebar`。
-- **状态管理**:
-    - **`SocketContext.jsx`**: 这是前端状态管理的核心。它通过 React Context API 向整个应用提供一个全局的 `socket` 实例和集中的游戏状态。
-    - 所有从服务器接收到的游戏状态 (`gameStateUpdate`) 都会在这里被处理，并更新到全局状态中，从而驱动UI的重新渲染。
-    - 这种设计将通信逻辑与UI组件解耦，使得组件本身更加纯粹和易于管理。
-- **自定义 Hooks**:
-    - **`useGameSounds`**: 监听 `gameState` 的变化，在特定事件发生时（如轮到玩家行动、有人下注）播放对应的音效。
-    - **`useGlobalMessages`**: 监听游戏状态变化，用于显示全局的提示信息（如 "Check", "Raise"）。
-- **`useGameViewModel.js`**: 将 Socket 状态收敛为欢迎、连接、大厅和游戏页面状态，以及当前玩家的权限与行动能力。
-- **`GameTable.jsx`**: 作为轻量页面协调器，保留现有 Socket.IO 事件和数据结构。
+## 📡 通信与恢复
 
-## 📡 通信协议
+当前使用协议 v2：`resumeSession` 恢复稳定身份，`roomSnapshot` 一次性同步公开状态和对应玩家的私有状态；命令带请求标识与连接代次，下注还需匹配手牌及行动标识。断线不重置行动期限，结算后默认 8 秒自动续局，房主断线 30 秒后交接。离线成员保留本场身份和筹码。
 
-客户端和服务器之间通过一套定义好的 Socket.IO 事件进行通信。
-
-| 事件名称 | 发送方 | 接收方 | 描述 |
-| :--- | :--- | :--- | :--- |
-| `createRoom` | Client | Server | 玩家请求创建一个新房间。 |
-| `joinRoom` | Client | Server | 玩家请求加入一个现有房间。 |
-| `leaveRoom` | Client | Server | 玩家请求退出当前房间。 |
-| `attemptReconnect` | Client | Server | 玩家尝试重新连接到之前的房间。 |
-| `startGame` | Client | Server | 房主请求开始游戏。 |
-| `playerAction` | Client | Server | 玩家执行一个游戏动作（如跟注、加注）。 |
-| `sendMessage` | Client | Server | 玩家发送一条聊天消息。 |
-| `gameStateUpdate` | Server | Client | 服务器向房间内所有客户端广播最新的游戏状态。 |
-| `dealPrivateCards`| Server | Client | 服务器向特定玩家发送其私有手牌。 |
-| `handResult` | Server | Client | 服务器广播一手牌的最终结果（获胜者、牌型等）。 |
-| `leftRoom` | Server | Client | 服务器确认玩家已成功退出房间。 |
-| `reconnectSuccess` | Server | Client | 服务器确认玩家重连成功。 |
-| `reconnectFailed` | Server | Client | 服务器通知玩家重连失败。 |
-| `playerDisconnected` | Server | Client | 服务器通知房间内玩家某人暂时离线。 |
-| `error` | Server | Client | 服务器向特定玩家发送错误信息。 |
+完整协议、状态转换、配置、发布限制与验证命令见 [状态与会话协议 v2](docs/STATE_AND_SESSION.md)，实机操作见 [重连验收指南](RECONNECT_TEST_GUIDE.md)。前后端需同步升级；本轮不支持服务端重启后恢复内存牌局。
 
 ## 📦 项目结构
 
@@ -124,7 +84,8 @@ texasholdem/
 │   │   └── dev/         # 确定性 UI 预览 fixture
 │   └── public/      # 静态资源
 ├── server/          # Node.js后端服务
-│   ├── index.js     # 服务器入口和Socket.IO事件处理
+│   ├── index.js     # HTTP / Socket.IO 适配
+│   ├── room-service.js # 房间、身份、场次与定时任务
 │   ├── game.js      # 核心游戏逻辑和状态机
 │   └── Dockerfile   # Docker配置
 └── README.md
@@ -134,14 +95,14 @@ texasholdem/
 
 ### 环境要求
 
-- Node.js 16+
+- Node.js 22.13+（本地已在 Node.js 26 验证）
 - npm 或 yarn
 
 ### 安装和运行
 
 1.  **克隆仓库**
     ```bash
-    git clone https://github.com/your-username/texasholdem.git
+    git clone https://github.com/YinChingZ/texasholdem.git
     cd texasholdem
     ```
 
@@ -166,6 +127,10 @@ texasholdem/
     - 第一个玩家创建房间，并将房间ID分享给其他玩家。
     - 其他玩家使用房间ID加入。
     - 房主点击“开始游戏”即可享受德州扑克的乐趣！
+
+### 界面验收
+
+开发模式下访问 `http://localhost:5173/?uiPreview=__index__` 查看固定场景。新界面默认深色，已有主题偏好仍然保留；详细测试和手机适配说明见 [UI_REFACTOR_ACCEPTANCE.md](UI_REFACTOR_ACCEPTANCE.md) 与 [MOBILE_ADAPTATION.md](MOBILE_ADAPTATION.md)。
 
 ### Docker 部署
 

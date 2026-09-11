@@ -16,8 +16,8 @@ test('two real players can complete a legal action', async ({ browser }) => {
     await guest.getByLabel('昵称').fill('行动访客')
     await guest.getByLabel('房间号').fill(roomId)
     await guest.getByRole('button', { name: /加入房间/ }).click()
-    await expect(host.getByText('2/8 玩家')).toBeVisible()
-    await host.getByRole('button', { name: /开始牌局/ }).click()
+    await expect(host.getByRole('heading', { name: '玩家 2/8' })).toBeVisible()
+    await host.getByRole('button', { name: /开始游戏/ }).click()
 
     const hostAction = host.getByRole('button', { name: /^(过牌|跟注|全押)/ })
     const guestAction = guest.getByRole('button', { name: /^(过牌|跟注|全押)/ })

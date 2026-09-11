@@ -34,7 +34,6 @@ export default function SoundSettings({ isOpen, onClose }) {
     <ModalDialog
       open={isOpen}
       title="音效设置"
-      eyebrow="Table audio"
       description="音效只保存在当前浏览器中，不会影响其他玩家。"
       size="small"
       closeLabel="关闭音效设置"

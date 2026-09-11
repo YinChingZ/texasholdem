@@ -1,11 +1,15 @@
+import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
+
+const uiPort = Number(process.env.E2E_PORT || 5173)
+const apiPort = Number(process.env.E2E_API_PORT || 3100)
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   expect: { timeout: 5_000 },
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${uiPort}`,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -13,14 +17,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'PORT=3100 npm start',
+      command: `PORT=${apiPort} npm start`,
       cwd: '../server',
-      port: 3100,
+      port: apiPort,
       reuseExistingServer: true,
     },
     {
-      command: 'VITE_API_URL=http://localhost:3100 npm run dev -- --host 127.0.0.1',
-      url: 'http://localhost:5173',
+      command: `VITE_API_URL=http://localhost:${uiPort} DEV_API_URL=http://localhost:${apiPort} npm run dev -- --host localhost --port ${uiPort} --strictPort`,
+      url: `http://localhost:${uiPort}`,
       reuseExistingServer: true,
     },
   ],

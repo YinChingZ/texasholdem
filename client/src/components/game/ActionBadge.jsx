@@ -1,3 +1,4 @@
+import { formatChips } from './tableLayout'
 import styles from './ActionBadge.module.css'
 
 const COPY = {
@@ -10,13 +11,13 @@ const COPY = {
   win: '赢得底池',
 }
 
-// 座位上方的瞬态行动气泡，由排程器的 seatEvents 驱动；key 用 event.id 保证每次动作重播动画
+// 座位状态行内的瞬态行动提示，由排程器的 seatEvents 驱动；key 用 event.id 保证每次动作重播动画
 export default function ActionBadge({ event }) {
   if (!event) return null
   return (
     <span key={event.id} className={`${styles.badge} ${styles[event.kind] ?? ''}`} role="status">
       {COPY[event.kind] ?? event.kind}
-      {event.amount > 0 && <strong>{event.amount}</strong>}
+      {event.amount > 0 && <strong>{formatChips(event.amount)}</strong>}
     </span>
   )
 }

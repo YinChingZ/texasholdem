@@ -24,7 +24,7 @@ class Deck {
             }
         }
         this.shuffle();
-        console.log(`New deck created with ${this.cards.length} cards`);
+
     }
 
     shuffle() {
@@ -106,7 +106,7 @@ class Game {
 
         for (let step = 1; step <= n; step++) {
             const cand = seats[(((startSeat + step) % n) + n) % n];
-            if (cand.chips > 0) {
+            if (this.activePlayers.includes(cand)) {
                 this.dealerPlayerId = cand.id;
                 this._lastButtonSeat = seats.findIndex(p => p.id === cand.id);
                 this.dealerPosition = this.activePlayers.findIndex(p => p.id === cand.id);
@@ -130,8 +130,9 @@ class Game {
         }
     }
 
-    startGame() {
-        if (this.players.length < 2) {
+    startGame(eligibleIds = this.players.map(p => p.id)) {
+        const eligible = this.players.filter(p => eligibleIds.includes(p.id) && p.chips > 0);
+        if (eligible.length < 2) {
             throw new Error('至少需要2个玩家才能开始游戏');
         }
 
@@ -140,8 +141,7 @@ class Game {
         this.mainPot = 0;
         this.sidePots = [];
         this.communityCards = [];
-        
-        console.log(`Starting new game - deck has ${this.deck.cards.length} cards`);
+
           // 重置玩家状态
         this.players.forEach(p => {
             p.hand = [];
@@ -149,9 +149,11 @@ class Game {
             p.currentBet = 0;           // 当前回合的下注
             p.totalBetThisHand = 0;     // 整手牌的累计下注
             p.hasActed = false;
+            p.winnings = 0;
+            p.leftTable = false;
         });
           // 更新活跃玩家列表
-        this.activePlayers = this.players.filter(p => p.chips > 0);
+        this.activePlayers = eligible;
         if (this.activePlayers.length < 2) {
             throw new Error('没有足够的玩家有筹码参与游戏');
         }
@@ -179,6 +181,10 @@ class Game {
         this.activePlayers[this.smallBlindPosition].hasActed = false;
         this.activePlayers[this.bigBlindPosition].hasActed = false;
         this.lastRaiser = this.activePlayers[this.bigBlindPosition].id;
+        if (this._isBettingRoundOver()) return this._endBettingRound();
+        if (this.activePlayers[this.currentPlayerTurn].status !== 'in-game') {
+            return this._advanceTurn();
+        }
     }    _postBlind(position, amount) {
         const player = this.activePlayers[position];
         const blindAmount = Math.min(player.chips, amount);
@@ -186,20 +192,21 @@ class Game {
         player.currentBet = blindAmount;        // 当前回合下注
         player.totalBetThisHand = blindAmount;  // 整手牌累计下注
         this.mainPot += blindAmount;
-        
+
         if (player.chips === 0) {
             player.status = 'all-in';
         }
     }playerAction(playerId, action, betAmount = 0) {
+        if (!['PREFLOP', 'FLOP', 'TURN', 'RIVER'].includes(this.gameState)) throw new Error('当前不在下注阶段');
         const playerIndex = this.activePlayers.findIndex(p => p.id === playerId);
         if (playerIndex !== this.currentPlayerTurn) {
             throw new Error("不是你的回合");
         }
 
         const player = this.activePlayers[playerIndex];
-        
+
         // 标记玩家已行动
-        player.hasActed = true;
+        if (!player || player.status !== 'in-game') throw new Error('当前玩家不可行动');
 
         switch (action) {
             case 'fold':
@@ -209,21 +216,22 @@ class Game {
                 if (player.currentBet < this.currentBet) {
                     throw new Error(`无法过牌，必须跟注或加注。当前需要下注: ${this.currentBet}, 你的下注: ${player.currentBet}`);
                 }
-                console.log(`Player ${player.id} checked. Current bet: ${this.currentBet}, Player bet: ${player.currentBet}`);
+
                 break;
-                
+
             case 'call':
                 this._handleCall(player);
                 break;
-                
+
             case 'raise':
             case 'bet':
                 this._handleRaise(player, betAmount);
                 break;
-                
+
             default:
                 throw new Error(`无效操作: ${action}`);        }
 
+        player.hasActed = true;
         const result = this._advanceTurn();
 
         if (result && (result.handResult || result.runout)) {
@@ -236,24 +244,34 @@ class Game {
     // all-in runout：推进一街（或在河牌后执行摊牌）。仅当 playerAction 返回
     // { runout: true } 后由服务端调用，每次调用推进一街并返回下一个标记/结果。
     advanceRunoutStreet() {
+        if (!['PREFLOP', 'FLOP', 'TURN', 'RIVER'].includes(this.gameState) || this.currentPlayerTurn !== -1) {
+            throw new Error('自动发牌任务已失效');
+        }
         return this._advanceGameState();
+    }
+
+    resetSession(initialChips) {
+        this.players.forEach(p => { p.chips = initialChips; p.winnings = 0; p.leftTable = false; });
+        this._resetToWaiting();
+        this.minRaise = this.bigBlind;
+        this.dealerPlayerId = null;
+        this._lastButtonSeat = -1;
+    }
+
+    finishSession() {
+        if (['PREFLOP', 'FLOP', 'TURN', 'RIVER'].includes(this.gameState)) throw new Error('请先完成本手结算');
+        this.gameState = 'GAME_OVER';
+        this.currentPlayerTurn = -1;
     }
       _handleCall(player) {
         const amountToCall = this.currentBet - player.currentBet;
         const callAmount = Math.min(player.chips, amountToCall);
-        
+
         player.chips -= callAmount;
         player.currentBet += callAmount;        // 更新当前回合下注
         player.totalBetThisHand += callAmount;  // 更新整手牌累计
         this.mainPot += callAmount;
-        
-        console.log(`Player ${player.id} called:`, {
-            callAmount,
-            newCurrentBet: player.currentBet,
-            newTotalBet: player.totalBetThisHand,
-            remainingChips: player.chips
-        });
-        
+
         if (player.chips === 0) {
             player.status = 'all-in';
             // this._createSidePots(); // 移动到 _endBettingRound 统一处理
@@ -296,15 +314,6 @@ class Game {
 
         const raiseIncrement = player.currentBet - prevCurrentBet;
 
-        console.log(`Player ${player.id} raised:`, {
-            raiseAmount,
-            totalAmount: actualAmount,
-            raiseIncrement,
-            newGameCurrentBet: this.currentBet,
-            newTotalBet: player.totalBetThisHand,
-            remainingChips: player.chips
-        });
-
         if (raiseIncrement >= minPureRaiseAmount) {
             // 完整加注：刷新最小加注增量并重新打开其他玩家的行动
             this.minRaise = raiseIncrement;
@@ -325,13 +334,13 @@ class Game {
     }    _createSidePots() {
         // 使用所有参与了本手牌下注的玩家，包括已弃牌的
         const playersInHand = this.activePlayers;
-        
+
         // 找出所有未弃牌的玩家
         const activePlayers = playersInHand.filter(p => p.status !== 'folded');
-        
+
         // 获取所有玩家的下注额，去重并排序
         const uniqueBets = [...new Set(playersInHand.map(p => p.totalBetThisHand).filter(b => b > 0))].sort((a, b) => a - b);
-        
+
         let totalProcessedBet = 0;
         const pots = []; // 一个临时数组，用于存放所有彩池（主池和边池）
 
@@ -361,10 +370,10 @@ class Game {
                     eligiblePlayers: eligibleToWin
                 });
             }
-            
+
             totalProcessedBet = betLevel;
         }
-        
+
         // 从 pots 数组中设置主池和边池
         if (pots.length > 0) {
             this.mainPot = pots[0].amount;
@@ -375,15 +384,6 @@ class Game {
             this.sidePots = [];
         }
 
-        console.log('Side pots created:', {
-            mainPot: this.mainPot,
-            sidePots: this.sidePots,
-            playerBets: playersInHand.map(p => ({ 
-                id: p.id, 
-                totalBetThisHand: p.totalBetThisHand, 
-                status: p.status 
-            }))
-        });
     }
 
     // 只剩一名未弃牌玩家时直接结算：赢家收下全部已投入筹码。
@@ -441,13 +441,7 @@ class Game {
     }
 
     _advanceTurn() {
-        console.log('_advanceTurn called');
-        console.log('Current state:', {
-            currentPlayerTurn: this.currentPlayerTurn,
-            activePlayersLength: this.activePlayers.length,
-            activePlayers: this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname, status: p.status }))
-        });
-        
+
         // 检查是否只剩一个未弃牌玩家
         const contenders = this.activePlayers.filter(p => p.status !== 'folded');
         if (contenders.length === 1) {
@@ -458,54 +452,54 @@ class Game {
         if (this._isBettingRoundOver()) {
             return this._endBettingRound();
         }
-        
+
         // 验证当前 currentPlayerTurn 的有效性
         if (this.currentPlayerTurn < 0 || this.currentPlayerTurn >= this.activePlayers.length) {
-            console.warn(`Invalid currentPlayerTurn: ${this.currentPlayerTurn}, resetting to first valid player`);
+
             this.currentPlayerTurn = this.activePlayers.findIndex(p => p.status === 'in-game');
             if (this.currentPlayerTurn === -1) {
-                console.error('No valid players found in activePlayers');
+
                 return null;
             }
         }
-        
+
         // 查找下一个可行动玩家
         let nextPlayer;
         let nextIndex = this.currentPlayerTurn;
         let attempts = 0;
         const maxAttempts = this.activePlayers.length; // 防止无限循环
-        
+
         do {
             nextIndex = (nextIndex + 1) % this.activePlayers.length;
             nextPlayer = this.activePlayers[nextIndex];
             attempts++;
-            
+
             if (attempts >= maxAttempts) {
-                console.error('Could not find next valid player after full cycle');
+
                 break;
             }
         } while (nextPlayer && nextPlayer.status !== 'in-game' && attempts < maxAttempts);
-        
+
         if (!nextPlayer || nextPlayer.status !== 'in-game') {
-            console.error('No valid next player found');
+
             return null;
         }
-        
+
         this.currentPlayerTurn = nextIndex;
-        console.log(`Advanced turn to player ${nextPlayer.id} (${nextPlayer.nickname}) at index ${nextIndex}`);
+
         return null;
     }    _isBettingRoundOver() {
         // 获取当前有行动能力的玩家（未弃牌且未全押）
         const actionablePlayers = this.activePlayers.filter(
             p => p.status === 'in-game'
         );
-        
+
         // 获取所有未弃牌的玩家
         const playersInHand = this.activePlayers.filter(p => p.status !== 'folded');
-        
+
         // 如果无人可行动，则回合结束（所有人都all-in或弃牌）
         if (actionablePlayers.length === 0) return true;
-        
+
         // 如果只有一个人可以行动，其他人都all-in或弃牌，则该玩家无需再行动
         if (actionablePlayers.length === 1) {
             // 检查这个玩家的下注是否已经至少等于所有all-in玩家的最高下注
@@ -515,41 +509,30 @@ class Game {
                     .map(p => p.currentBet),
                 0
             );
-            
+
             const activePlayer = actionablePlayers[0];
             if (activePlayer.currentBet >= maxAllInBet) {
                 return true; // 该玩家已经匹配了最高下注，回合结束
             }
         }
-        
+
         // 检查是否所有未弃牌玩家下注相等或已全押
-        const betsEqual = playersInHand.every(p => 
+        const betsEqual = playersInHand.every(p =>
             p.currentBet === this.currentBet || p.status === 'all-in'
         );
-            
+
         // 检查是否所有有行动能力的玩家都已行动
         const allActed = actionablePlayers.every(p => p.hasActed);
-        
+
         return betsEqual && allActed;
     }    _endBettingRound() {
-        console.log('Ending betting round:', {
-            gameState: this.gameState,
-            mainPot: this.mainPot,
-            currentBet: this.currentBet,
-            playerBets: this.activePlayers.map(p => ({ 
-                id: p.id, 
-                currentBet: p.currentBet, 
-                totalBetThisHand: p.totalBetThisHand,
-                status: p.status 
-            }))
-        });
-        
+
         // 在回合结束时创建边池（如果有all-in玩家）
         const hasAllInPlayers = this.activePlayers.some(p => p.status === 'all-in');
         if (hasAllInPlayers) {
             this._createSidePots();
         }
-        
+
         // 重置玩家的回合状态
         this.activePlayers.forEach(p => {
             p.hasActed = false;
@@ -557,43 +540,41 @@ class Game {
             p.currentBet = 0;
             // 保持 totalBetThisHand，这是整手牌的累计下注
         });
-        
+
         // 新回合开始，重置当前回合的下注要求为0
         this.currentBet = 0;
         this.lastRaiser = null;
         this.minRaise = this.bigBlind; // 每条街最小加注增量重置为大盲
         this.roundComplete = true;
-        
-        console.log('Round ended, advancing game state...');
+
         return this._advanceGameState();
     }_advanceGameState() {
-        console.log('Advancing game state from:', this.gameState);
-        
+
         switch (this.gameState) {
             case 'PREFLOP':
                 this.gameState = 'FLOP';
                 // 发放翻牌（3张）
                 const flopCards = [this.deck.deal(), this.deck.deal(), this.deck.deal()];
                 this.communityCards.push(...flopCards);
-                console.log('Flop cards dealt:', flopCards.map(c => c.toString()));
+
                 break;
             case 'FLOP':
                 this.gameState = 'TURN';
                 // 发放转牌（1张）
                 const turnCard = this.deck.deal();
                 this.communityCards.push(turnCard);
-                console.log('Turn card dealt:', turnCard.toString());
+
                 break;
             case 'TURN':
                 this.gameState = 'RIVER';
                 // 发放河牌（1张）
                 const riverCard = this.deck.deal();
                 this.communityCards.push(riverCard);
-                console.log('River card dealt:', riverCard.toString());
+
                 break;
             case 'RIVER':
                 this.gameState = 'SHOWDOWN';
-                console.log('Moving to showdown');
+
                 break;
         }
 
@@ -602,39 +583,33 @@ class Game {
         } else {
             // 开始新一轮下注
             const playersInGame = this.activePlayers.filter(p => p.status === 'in-game');
-            
+
             if (playersInGame.length <= 1) {
                 // 无人（或仅剩一人）可行动，后续街没有下注空间：返回 runout 标记，
                 // 由调用方（index.js）逐街推进并广播。这同时修复了旧实现
                 // “一人 all-in 被跟注后直接在当前街摊牌、不发剩余公共牌”的规则错误。
-                console.log('Betting exhausted, runout pending...');
+
                 this.currentPlayerTurn = -1;
                 return { runout: true };
             }
-            
+
             // 翻后行动顺序：多人从小盲位起；单挑（2人）由大盲位先行动，庄家/小盲最后行动
             let startPosition = this.activePlayers.length === 2
                 ? this.bigBlindPosition
                 : this.smallBlindPosition;
             let attempts = 0;
-            
+
             while (attempts < this.activePlayers.length) {
                 const player = this.activePlayers[startPosition];
                 if (player && player.status === 'in-game') {
                     this.currentPlayerTurn = startPosition;
-                    console.log('New round starting, first to act:', player.id);
+
                     break;
                 }
                 startPosition = (startPosition + 1) % this.activePlayers.length;
                 attempts++;
             }
-            
-            console.log('New game state:', {
-                gameState: this.gameState,
-                communityCards: this.communityCards.length,
-                currentPlayer: this.activePlayers[this.currentPlayerTurn]?.id
-            });
-            
+
             return null;
         }
     }    // 辅助方法：根据 poker-evaluator 的 handType(1-9) 获取中文牌型等级描述。
@@ -659,14 +634,7 @@ class Game {
         this.activePlayers.forEach(player => {            if (player.status !== 'folded') {
                 const hand = (player.hand && Array.isArray(player.hand)) ? player.hand.map(c => c.toString()) : [];
                 const allCards = [...community, ...hand];                const result = poker.evalHand(allCards);
-                
-                console.log(`Player ${player.id} hand evaluation:`, {
-                    allCards,
-                    resultCards: result.cards,
-                    resultCardsLength: result.cards?.length,
-                    handName: result.handName
-                });
-                
+
                 // 更安全的牌型描述处理
                 let handDescription = '未知牌型';
                 if (result.handName) {
@@ -679,24 +647,17 @@ class Game {
                   // 获取牌型强度等级（用于排序和比较）
                 const handRank = this._getHandRank(result);                // 确保最佳牌组正确：应该是5张牌
                 let bestCards = [];
-                
+
                 if (result.cards && Array.isArray(result.cards) && result.cards.length === 5) {
                     // 如果评估器返回了正确的5张牌，直接使用
                     bestCards = result.cards;
-                    console.log(`Player ${player.id}: Using evaluator's bestCards`);
+
                 } else {
                     // 如果评估器返回的数据不正确，手动计算最佳5张牌
-                    console.warn(`Player ${player.id}: result.cards invalid (${result.cards?.length} cards), calculating best 5 from 7`);
+
                     bestCards = this._findBestFiveCards(allCards);
                 }
-                
-                console.log(`Player ${player.id} bestCards selection:`, {
-                    communityLength: community.length,
-                    handLength: hand.length,
-                    allCardsLength: allCards.length,
-                    selectedBestCards: bestCards,
-                    bestCardsLength: bestCards.length
-                });
+
                   // 将bestCards字符串数组转换为对象格式，供前端使用
                 const bestCardsForFrontend = bestCards.map(cardStr => {
                     // 解析字符串格式的卡牌（如 "Ah", "Kd"）
@@ -712,8 +673,8 @@ class Game {
                     return { rank: 'A', suit: 'Spades' }; // 默认值
                 });
 
-                playerHands.push({ 
-                    playerId: player.id, 
+                playerHands.push({
+                    playerId: player.id,
                     nickname: player.nickname,
                     result,
                     handDescription,
@@ -740,7 +701,7 @@ class Game {
         });        // 按牌型强弱排序（只对未弃牌的玩家排序）
         const activePlayerHands = playerHands.filter(ph => ph.status !== 'folded');
         activePlayerHands.sort((a, b) => b.result.value - a.result.value);
-        
+
         // 保持原有的playerHands数组顺序，但添加排名信息
         playerHands.forEach(ph => {
             if (ph.status !== 'folded') {
@@ -752,7 +713,7 @@ class Game {
                 ph.isWinner = false;
             }
         });
-        
+
         // 重置本轮的winnings
         this.activePlayers.forEach(p => p.winnings = 0);
 
@@ -762,10 +723,10 @@ class Game {
           // 处理边池
         this.sidePots.forEach(pot => {
             // 找出有资格赢取边池的玩家手牌
-            const eligibleHands = activePlayerHands.filter(h => 
+            const eligibleHands = activePlayerHands.filter(h =>
                 pot.eligiblePlayers.includes(h.playerId)
             );
-            
+
             if (eligibleHands.length > 0) {
                 const bestHand = Math.max(...eligibleHands.map(h => h.result.value));
                 const potWinners = eligibleHands.filter(h => h.result.value === bestHand);
@@ -812,33 +773,20 @@ class Game {
             communityCards: (this.communityCards && Array.isArray(this.communityCards)) ? this.communityCards.map(c => c.toString()) : [],
             handResult: true
         };
-        
-        console.log('Showdown result prepared:', {
-            winnersCount: result.winners.length,
-            playersHandsCount: result.playersHands.length,
-            rankedPlayersCount: result.handComparison.rankedPlayers.length,
-            playerHands: result.playersHands.map(ph => ({
-                playerId: ph.playerId,
-                nickname: ph.nickname,
-                handDescription: ph.handDescription,
-                rank: ph.rank,
-                isWinner: ph.isWinner
-            }))
-        });
-        
+
         // 清理牌局状态以备下一轮
         this._cleanupAfterHand();
-        
+
         // 返回最终结果
         return result;
     }
 
     _awardPot(potAmount, winnerIds) {
         if (winnerIds.length === 0 || potAmount === 0) return;
-        
+
         const amountPerWinner = Math.floor(potAmount / winnerIds.length);
         const remainder = potAmount % winnerIds.length;
-        
+
         winnerIds.forEach((id, index) => {
             const winner = this.activePlayers.find(p => p.id === id);
             if (winner) {
@@ -851,13 +799,7 @@ class Game {
     }
 
     _cleanupAfterHand() {
-        console.log('Cleaning up hand...');
-        console.log('Final chip counts:', this.activePlayers.map(p => ({
-            id: p.id,
-            chips: p.chips,
-            status: p.status
-        })));
-        
+
         this.gameState = 'SHOWDOWN_COMPLETE';
         this.activePlayers.forEach(p => {
             if (p.chips > 0) {
@@ -871,7 +813,7 @@ class Game {
             p.hand = [];
             p.winnings = 0;
         });
-        
+
         this.communityCards = [];
         this.mainPot = 0;
         this.sidePots = [];
@@ -883,43 +825,23 @@ class Game {
         // 清除本手中途离桌（leftTable）的玩家：他们已不在房间名单中，也不应参与后续手牌
         this.activePlayers = this.activePlayers.filter(p => !p.leftTable);
 
-        console.log('Hand ended, total players:', this.players.length);
-        console.log('Players with chips:', this.players.filter(p => p.chips > 0).length);    }
+            }
 
     // 新增方法：准备下一手
     prepareNextHand() {
         if (this.gameState === 'SHOWDOWN_COMPLETE') {
             // 更新活跃玩家列表，只包含有筹码的玩家
             this.activePlayers = this.players.filter(p => p.chips > 0);
-            
-            console.log('Preparing next hand:', {
-                totalPlayers: this.players.length,
-                activePlayers: this.activePlayers.length,
-                chips: this.activePlayers.map(p => ({ id: p.id, chips: p.chips }))
-            });
-            
+
             // 检查是否还有足够玩家继续游戏
             if (this.activePlayers.length < 2) {
-                console.log('Game over - not enough players with chips');
+
                 this.gameState = 'GAME_OVER';
                 return false;
             }
               // 重置游戏状态并开始新一手
-            this._resetHandState();
-            this._startNewHand();
-            
-            console.log('Next hand prepared successfully:', {
-                gameState: this.gameState,
-                currentPlayerTurn: this.currentPlayerTurn,
-                currentPlayerId: this.activePlayers[this.currentPlayerTurn]?.id,
-                activePlayers: this.activePlayers.map(p => ({
-                    id: p.id,
-                    chips: p.chips,
-                    status: p.status,
-                    hasActed: p.hasActed
-                }))
-            });
-            
+            this.startGame();
+
             return true;        }
         return false;
     }    // 重置手牌状态
@@ -928,9 +850,7 @@ class Game {
         this.mainPot = 0;
         this.sidePots = [];
         this.communityCards = [];
-        
-        console.log(`Resetting hand state - new deck has ${this.deck.cards.length} cards`);
-        
+
         // 重置玩家状态
         this.activePlayers.forEach(p => {
             p.hand = [];
@@ -947,8 +867,7 @@ class Game {
         this.currentBet = 0;
         this.minRaise = this.bigBlind;
         this.currentPlayerTurn = -1; // 重置当前玩家
-        
-        console.log('Hand state reset for new hand');
+
     }
 
     // 开始新一手
@@ -972,24 +891,7 @@ class Game {
             }
         }// 设置第一个行动的玩家
         this._setFirstPlayerToAct();
-        
-        console.log('New hand started with detailed state:', {
-            gameState: this.gameState,
-            dealerPosition: this.dealerPosition,
-            smallBlind: this.smallBlindPosition,
-            bigBlind: this.bigBlindPosition,
-            currentPlayer: this.currentPlayerTurn,
-            currentPlayerId: this.activePlayers[this.currentPlayerTurn]?.id,
-            activePlayers: this.activePlayers.length,
-            playersStatus: this.activePlayers.map(p => ({
-                id: p.id,
-                position: this.activePlayers.indexOf(p),
-                chips: p.chips,
-                currentBet: p.currentBet,
-                hasActed: p.hasActed,
-                status: p.status
-            }))
-        });
+
     }    // 设置第一个行动的玩家
     _setFirstPlayerToAct() {
         if (this.activePlayers.length === 2) {
@@ -999,39 +901,28 @@ class Game {
             // 多人游戏：大盲注左边的玩家先行动（UTG位置）
             this.currentPlayerTurn = (this.bigBlindPosition + 1) % this.activePlayers.length;
         }
-        
-        console.log('Set first player to act:', {
-            gameState: this.gameState,
-            currentPlayerTurn: this.currentPlayerTurn,
-            currentPlayerId: this.activePlayers[this.currentPlayerTurn]?.id,
-            smallBlindPos: this.smallBlindPosition,
-            bigBlindPos: this.bigBlindPosition
-        });
+
     }
 
     _getGameState() {
         // 在等待状态或结算完成状态时使用所有玩家，游戏中使用活跃玩家
-        const playersToShow = (this.gameState === 'WAITING' || this.gameState === 'SHOWDOWN_COMPLETE') 
+        const playersToShow = (this.gameState === 'WAITING' || this.gameState === 'SHOWDOWN_COMPLETE')
             ? this.players : this.activePlayers;
-        
-        console.log(`Game._getGameState() - gameState: ${this.gameState}`);
-        console.log(`Total players: ${this.players.length}, Active players: ${this.activePlayers.length}, Showing: ${playersToShow.length}`);
-        console.log('Players to show:', playersToShow.map(p => ({ id: p.id, nickname: p.nickname, chips: p.chips, status: p.status })));
-        
+
         // 验证 currentPlayerTurn 的有效性
         let currentPlayerTurnId = null;
         if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
             const currentPlayer = this.activePlayers[this.currentPlayerTurn];
             if (currentPlayer) {
                 currentPlayerTurnId = currentPlayer.id;
-                console.log(`Current player turn: index ${this.currentPlayerTurn}, player ${currentPlayer.id} (${currentPlayer.nickname})`);
+
             } else {
-                console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} points to undefined player`);
+
             }
         } else {
-            console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} is out of bounds for activePlayers array (length: ${this.activePlayers.length})`);
+
         }
-        
+
         return {
             gameState: this.gameState,
             communityCards: this.communityCards,
@@ -1061,7 +952,6 @@ class Game {
             this.players.push(player);
         }
     }    removePlayer(playerId) {
-        console.log(`Removing player ${playerId}`);
 
         const handInProgress = this.gameState !== 'WAITING'
             && this.gameState !== 'SHOWDOWN_COMPLETE'
@@ -1103,14 +993,6 @@ class Game {
                 result = this._endBettingRound();
             }
 
-            console.log('After mid-hand leave:', {
-                leaver: playerId,
-                currentPlayerTurn: this.currentPlayerTurn,
-                players: this.players.length,
-                resultKind: result && result.handResult ? 'handResult'
-                    : (result && result.runout ? 'runout' : 'none')
-            });
-
             return { shouldResetGame: false, result };
         }
 
@@ -1130,7 +1012,7 @@ class Game {
 
         let shouldResetGame = false;
         if (handInProgress && this.players.length < 2) {
-            console.log('Insufficient players during game, resetting to WAITING state');
+
             shouldResetGame = true;
             this._resetToWaiting();
         }
@@ -1162,10 +1044,10 @@ class Game {
 
         return { shouldResetGame };
     }
-    
+
     // 新增方法：重置游戏到准备阶段
     _resetToWaiting() {
-        console.log('Resetting game to WAITING state due to insufficient players');
+
         this.gameState = 'WAITING';
         this.mainPot = 0;
         this.sidePots = [];
@@ -1175,7 +1057,7 @@ class Game {
         this.roundComplete = false;
         this.currentPlayerTurn = -1;
         this.activePlayers = [];
-        
+
         // 重置所有玩家状态
         this.players.forEach(player => {
             player.hand = [];
@@ -1188,20 +1070,17 @@ class Game {
 
     // 新增：更新玩家ID（用于重连）
     updatePlayerId(oldPlayerId, newPlayerId) {
-        console.log(`Updating player ID from ${oldPlayerId} to ${newPlayerId}`);
-        console.log('Before update - currentPlayerTurn:', this.currentPlayerTurn);
-        console.log('Before update - activePlayers:', this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })));
-        
+
         // 检查当前轮到的玩家是否是要更新的玩家
         let wasCurrentPlayer = false;
         if (this.currentPlayerTurn >= 0 && this.currentPlayerTurn < this.activePlayers.length) {
             const currentPlayer = this.activePlayers[this.currentPlayerTurn];
             if (currentPlayer && currentPlayer.id === oldPlayerId) {
                 wasCurrentPlayer = true;
-                console.log('The player being updated is currently the active player');
+
             }
         }
-        
+
         // 保持庄家钮的稳定身份追踪跨重连有效
         if (this.dealerPlayerId === oldPlayerId) {
             this.dealerPlayerId = newPlayerId;
@@ -1211,38 +1090,33 @@ class Game {
         const player = this.players.find(p => p.id === oldPlayerId);
         if (player) {
             player.id = newPlayerId;
-            console.log(`Updated player in players array: ${player.nickname} -> ${newPlayerId}`);
+
         }
-        
+
         // 更新activePlayers数组中的玩家ID
         const activePlayer = this.activePlayers.find(p => p.id === oldPlayerId);
         if (activePlayer) {
             activePlayer.id = newPlayerId;
-            console.log(`Updated player in activePlayers array: ${activePlayer.nickname} -> ${newPlayerId}`);
+
         }
-        
+
         // 验证currentPlayerTurn索引的有效性
         if (this.currentPlayerTurn >= 0) {
             if (this.currentPlayerTurn >= this.activePlayers.length) {
-                console.warn(`currentPlayerTurn index ${this.currentPlayerTurn} is out of bounds for activePlayers array (length: ${this.activePlayers.length})`);
+
                 // 重置到第一个可行动的玩家
                 this.currentPlayerTurn = this.activePlayers.findIndex(p => p.status === 'in-game');
                 if (this.currentPlayerTurn === -1) {
                     this.currentPlayerTurn = 0; // 如果没有找到，默认为0
                 }
-                console.log(`Reset currentPlayerTurn to: ${this.currentPlayerTurn}`);
+
             }
         }
-        
-        console.log('After update - currentPlayerTurn:', this.currentPlayerTurn);
-        console.log('After update - activePlayers:', this.activePlayers.map(p => ({ id: p.id, nickname: p.nickname })));
-        console.log('Current player after update:', this.activePlayers[this.currentPlayerTurn]?.id);
-        
+
         if (wasCurrentPlayer) {
-            console.log(`Successfully updated current player ID from ${oldPlayerId} to ${newPlayerId}`);
+
         }
-        
-        console.log(`Player ID update completed from ${oldPlayerId} to ${newPlayerId}`);
+
     }
 
     // 从7张牌中找到最佳的5张牌组合
@@ -1254,10 +1128,10 @@ class Game {
 
         let bestCards = [];
         let bestValue = -1;
-        
+
         // 生成所有可能的5张牌组合
         const combinations = this._getCombinations(allCards, 5);
-        
+
         for (const combination of combinations) {
             try {
                 const evalResult = poker.evalHand(combination);
@@ -1266,10 +1140,10 @@ class Game {
                     bestCards = combination;
                 }
             } catch (error) {
-                console.warn('Error evaluating combination:', combination, error);
+
             }
         }
-        
+
         return bestCards.length > 0 ? bestCards : allCards.slice(0, 5);
     }
 
@@ -1277,19 +1151,19 @@ class Game {
     _getCombinations(arr, k) {
         if (k === 1) return arr.map(x => [x]);
         if (k === arr.length) return [arr];
-        
+
         const combinations = [];
-        
+
         for (let i = 0; i <= arr.length - k; i++) {
             const first = arr[i];
             const rest = arr.slice(i + 1);
             const subCombinations = this._getCombinations(rest, k - 1);
-            
+
             for (const subCombination of subCombinations) {
                 combinations.push([first, ...subCombination]);
             }
         }
-        
+
         return combinations;
     }
 }

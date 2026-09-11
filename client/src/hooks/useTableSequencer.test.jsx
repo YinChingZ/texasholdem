@@ -132,6 +132,12 @@ describe('useTableSequencer', () => {
     expect(result.current.displayHandResult).toBe(handResult)
     expect(soundManager.playPotCollect).toHaveBeenCalled()
     expect(soundManager.playWin).toHaveBeenCalled() // 英雄获胜
+    expect(result.current.tableAwards.hero.amount).toBe(200)
+    rerender({ gameState: cleaned, handResult: null })
+    expect(result.current.tableAwards.hero.amount).toBe(200)
+    rerender({ gameState: snapshot(), handResult: null })
+    act(() => vi.advanceTimersByTime(5000))
+    expect(result.current.tableAwards).toEqual({})
   })
 
   it('WAITING 快照触发硬同步清空队列', () => {

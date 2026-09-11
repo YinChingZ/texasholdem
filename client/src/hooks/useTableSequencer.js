@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EVENT, diffGameStates, isMidHandPhase, parseCardCode } from '../utils/gameStateDiff'
 import { BADGE_LIFETIME, DWELL, FLIGHT_LIFETIME, MAX_QUEUE_DELAY, prefersReducedMotion } from '../utils/motion'
+import { awardsFromResult } from '../components/game/playerPresentation'
 import { soundManager } from '../utils/soundManager'
 
 // 把整包到达的权威 gameState 转换为有节奏的"展示状态"：
 // - displayState：牌桌渲染用的快照，最多落后权威态 ~2.5s
 // - seatEvents / potFlights / boardReveal / revealedHands：驱动瞬态动画
 // - displayHandResult：结算弹窗延迟到获胜动画播完才释放
-// 权威态（gameState）始终直接喂给 ActionDock/HeroPanel，玩家输入永不被动画阻塞。
-export function useTableSequencer({ gameState, handResult, heroId }) {
+// 权威态（gameState）始终直接喂给 ActionDock 和本人座位，玩家输入永不被动画阻塞。
+export function useTableSequencer({ gameState, handResult, heroId, recoveryVersion = 0 }) {
   const [displayState, setDisplayState] = useState(gameState)
   const [displayHandResult, setDisplayHandResult] = useState(null)
   const [seatEvents, setSeatEvents] = useState({})
   const [boardReveal, setBoardReveal] = useState({ animateFrom: -1, token: 0 })
   const [potFlights, setPotFlights] = useState([])
   const [revealedHands, setRevealedHands] = useState({})
+  const [tableAwards, setTableAwards] = useState({})
 
   const queueRef = useRef([])
   const drainTimerRef = useRef(null)
@@ -28,6 +30,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
   const awaitingResultRef = useRef(false)
   const cleanupTimersRef = useRef(new Set())
   const flightIdRef = useRef(0)
+  const recoveryRef = useRef(recoveryVersion)
 
   const applyDisplay = useCallback((next) => {
     displayRef.current = next
@@ -61,6 +64,8 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
 
   const hardSync = useCallback((snapshot) => {
     queueRef.current = []
+    cleanupTimersRef.current.forEach(timer => window.clearTimeout(timer))
+    cleanupTimersRef.current.clear()
     if (drainTimerRef.current) {
       window.clearTimeout(drainTimerRef.current)
       drainTimerRef.current = null
@@ -72,6 +77,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
     diffBaseRef.current = snapshot
     applyDisplay(snapshot)
     setSeatEvents({})
+    if (!['SHOWDOWN', 'SHOWDOWN_COMPLETE'].includes(snapshot?.gameState)) setTableAwards({})
     setPotFlights([])
     setRevealedHands({})
     setBoardReveal((current) => ({ animateFrom: -1, token: current.token + 1 }))
@@ -95,6 +101,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
   const processEvent = useCallback((event) => {
     switch (event.type) {
       case EVENT.HAND_STARTED: {
+        setTableAwards({})
         setSeatEvents({})
         setPotFlights([])
         setRevealedHands({})
@@ -154,6 +161,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
         return DWELL.showdownReveal
       }
       case 'POT_AWARDED': {
+        setTableAwards(current => ({ ...current, [event.playerId]: { amount: (current[event.playerId]?.amount ?? 0) + (Number(event.amount) || 0) } }))
         pushSeatEvent(event.playerId, 'win', event.amount)
         pushFlight(event.playerId, 'toSeat', event.amount)
         soundManager.playPotCollect()
@@ -161,6 +169,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
         return DWELL.potAwarded
       }
       case 'SHOW_RESULT': {
+        setTableAwards(awardsFromResult(event.result))
         setDisplayHandResult(event.result)
         return 0
       }
@@ -227,6 +236,12 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
   // 权威 gameState 变化 → diff 入队
   useEffect(() => {
     if (!gameState) return
+    if (recoveryRef.current !== recoveryVersion) {
+      recoveryRef.current = recoveryVersion
+      hardSync(gameState)
+      setDisplayHandResult(handResult ?? null)
+      return
+    }
     const phase = gameState.gameState
     if (phase === 'WAITING' || phase === 'GAME_OVER' || !diffBaseRef.current) {
       hardSync(gameState)
@@ -239,7 +254,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
     const totalDwell = queueRef.current.reduce((sum, event) => sum + estimateDwell(event), 0)
     if (totalDwell > MAX_QUEUE_DELAY) fastForwardRef.current = true
     drain()
-  }, [gameState, hardSync, drain])
+  }, [gameState, hardSync, drain, recoveryVersion, handResult])
 
   // handResult 到达/清除
   useEffect(() => {
@@ -261,6 +276,7 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
       return
     }
     // 其余情况（重连中途收到结果等）直接显示
+    setTableAwards(awardsFromResult(handResult))
     setDisplayHandResult(handResult)
   }, [handResult, buildShowdownEvents, drain])
 
@@ -293,5 +309,5 @@ export function useTableSequencer({ gameState, handResult, heroId }) {
     timers.clear()
   }, [])
 
-  return { displayState, displayHandResult, seatEvents, boardReveal, potFlights, revealedHands }
+  return { displayState, displayHandResult, seatEvents, boardReveal, potFlights, revealedHands, tableAwards }
 }

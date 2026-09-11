@@ -82,7 +82,8 @@ export function diffGameStates(prev, next) {
 
   // 手牌开始的快照里筹码变化来自盲注，不推断玩家动作（修掉旧实现的盲注误报）
   if (!handStarted && prev && isMidHandPhase(prevPhase)) {
-    const actorEvent = inferActorEvent(prev, next, handEnded)
+    const actionAdvanced = !('turnId' in prev) || prev.turnId !== next.turnId
+    const actorEvent = actionAdvanced ? inferActorEvent(prev, next, handEnded) : null
     if (actorEvent) events.push(actorEvent)
 
     // 非行动者的弃牌（断线代弃等）

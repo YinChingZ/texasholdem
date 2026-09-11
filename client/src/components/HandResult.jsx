@@ -1,5 +1,6 @@
-import { Crown, Eye, LockKeyhole, Trophy } from 'lucide-react'
+import { Eye, LockKeyhole, Trophy } from 'lucide-react'
 import { useSocket } from '../contexts/socket-context'
+import PlayerAvatar from './ui/PlayerAvatar'
 import PokerCard from './game/PokerCard'
 import ModalDialog from './ui/ModalDialog'
 import { Button } from './ui/Primitives'
@@ -28,6 +29,8 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
   const rankedPlayers = Array.isArray(result.handComparison?.rankedPlayers) ? result.handComparison.rankedPlayers : []
   const playersWithChips = gameState?.players?.filter((player) => player.chips > 0).length ?? 0
   const onlyOnePlayerLeft = playersWithChips <= 1
+  const canContinue = gameState?.allowedActions ? gameState.allowedActions.nextHand : !onlyOnePlayerLeft
+  const winnerCount = new Set(winners.map(winner => winner.playerId)).size
   const totalAwarded = winners.reduce((total, winner) => total + (Number(winner.amount) || 0), 0)
 
   const continueGame = () => {
@@ -43,12 +46,12 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
   const footer = isRoomCreator ? (
     <>
       <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
-      <Button variant="danger" onClick={endGame}>结束游戏</Button>
-      {!onlyOnePlayerLeft && <Button onClick={continueGame}>开始下一手</Button>}
+      {(!gameState?.allowedActions || gameState.allowedActions.end) && <Button variant="ghost" onClick={endGame}>结束游戏</Button>}
+      {canContinue && <Button onClick={continueGame}>开始下一手</Button>}
     </>
   ) : (
     <>
-      <span className={styles.waiting}>等待房主开始下一手</span>
+      <span className={styles.waiting}>服务端将自动续局，可返回牌桌查看</span>
       <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
     </>
   )
@@ -56,39 +59,34 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
   return (
     <ModalDialog
       title="本手结算"
-      eyebrow="Showdown"
       description={totalAwarded ? `本手共结算 ${totalAwarded.toLocaleString('zh-CN')} 筹码` : '本手牌局已经结束'}
-      size="large"
+      size="medium"
       closeLabel="关闭本手结算"
       onClose={onClose}
       footer={footer}
     >
       <div className={styles.layout}>
-        <section className={styles.board} aria-labelledby="result-board-title">
-          <div className={styles.sectionHeading}>
-            <h3 id="result-board-title">公共牌</h3>
-            <span>{result.communityCards?.length ?? 0}/5</span>
-          </div>
-          <CardRow cards={result.communityCards} />
-        </section>
 
         <section className={styles.winners} aria-labelledby="result-winners-title">
           <div className={styles.sectionHeading}>
             <h3 id="result-winners-title"><Trophy size={17} />获胜者</h3>
-            <span>{winners.length} 人</span>
+            <span>{winnerCount > 1 ? `${winnerCount} 位赢家` : '本手赢家'}</span>
           </div>
           <div className={styles.winnerList}>
-            {winners.map((winner, index) => (
+            {winners.map((winner, index) => {
+              const publicHand = playersHands.find(hand => hand.playerId === winner.playerId)
+              return (
               <article className={styles.winner} key={`${winner.playerId}-${index}`}>
-                <Crown size={19} aria-hidden="true" />
+                <PlayerAvatar name={winner.nickname} className={styles.avatar} />
                 <div>
                   <strong>{winner.nickname || `玩家 ${winner.playerId}`}</strong>
                   <span>{winner.handDescription || '赢得本手'}</span>
                   {winner.potLabel && <small>{winner.potLabel}</small>}
                 </div>
-                {winner.amount != null && <b>+{Number(winner.amount).toLocaleString('zh-CN')}</b>}
+                {winner.amount != null && <b className={styles.awardAmount}>+{Number(winner.amount).toLocaleString('zh-CN')}</b>}
+                {publicHand?.hand?.length > 0 && <div className={styles.winningCards}><CardRow cards={publicHand.hand} compact label="获胜手牌" /></div>}
               </article>
-            ))}
+            )})}
           </div>
         </section>
       </div>
@@ -101,9 +99,17 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
       )}
 
       {playersHands.length > 0 && (
-        <section className={styles.hands} aria-labelledby="player-hands-title">
+        <details className={styles.hands}><summary>摊牌明细</summary>
+        <section className={styles.board} aria-labelledby="result-board-title">
           <div className={styles.sectionHeading}>
-            <h3 id="player-hands-title"><Eye size={17} />摊牌明细</h3>
+            <h3 id="result-board-title">公共牌</h3>
+            <span>{result.communityCards?.length ?? 0}/5</span>
+          </div>
+          <CardRow cards={result.communityCards} />
+        </section>
+
+          <div className={styles.sectionHeading}>
+            <h3 id="player-hands-title"><Eye size={17} />玩家手牌</h3>
             <span>{playersHands.length} 位玩家</span>
           </div>
           <div className={styles.handGrid}>
@@ -124,7 +130,7 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
               )
             })}
           </div>
-        </section>
+        </details>
       )}
     </ModalDialog>
   )

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import WelcomeScreen from './WelcomeScreen'
+import { ThemeProvider } from '../contexts/ThemeProvider'
 
 function renderScreen(overrides = {}) {
   const props = {
@@ -13,7 +14,7 @@ function renderScreen(overrides = {}) {
     onJoinRoom: vi.fn(),
     ...overrides,
   }
-  return { props, ...render(<WelcomeScreen {...props} />) }
+  return { props, ...render(<ThemeProvider><WelcomeScreen {...props} /></ThemeProvider>) }
 }
 
 describe('WelcomeScreen', () => {

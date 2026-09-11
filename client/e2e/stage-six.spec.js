@@ -36,7 +36,7 @@ test('every final deterministic preview state renders without page errors', asyn
 test('320px keeps state text and 44px touch targets', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await page.goto('/?uiPreview=game-turn&theme=light')
-  await expect(page.getByTestId('mobile-player-strip')).toContainText('已弃牌')
+  await expect(page.getByTestId('table-stage')).toContainText('已弃牌')
   const undersized = await page.locator('button:visible').evaluateAll((buttons) => buttons
     .map((button) => ({ label: button.getAttribute('aria-label') || button.textContent.trim(), rect: button.getBoundingClientRect() }))
     .filter(({ rect }) => rect.width < 44 || rect.height < 44)

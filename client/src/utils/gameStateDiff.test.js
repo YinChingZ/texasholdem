@@ -197,3 +197,8 @@ describe('diffGameStates', () => {
     expect(diffGameStates(prev, next)).toEqual([{ type: EVENT.HAND_ENDED }])
   })
 })
+
+it('does not invent a check when only presence or settings changed within the same turn', () => {
+  const before = {gameState:'FLOP',turnId:'turn-1',currentPlayerTurn:'a',communityCards:[],players:[{id:'a',chips:100,status:'in-game',currentBet:0}]}
+  expect(diffGameStates(before,{...before,revision:4,settings:{showAllHands:false}})).toEqual([])
+})

@@ -31,11 +31,11 @@ test('welcome form enables the expected actions', async ({ page }) => {
 
 test('theme choice persists after reload', async ({ page }) => {
   await page.goto('/?uiPreview=welcome')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: '切换到白天模式' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await page.getByRole('button', { name: '切换到夜间模式' }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.reload()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
 
 test('all deterministic preview states render without page errors', async ({ page }) => {
@@ -43,7 +43,7 @@ test('all deterministic preview states render without page errors', async ({ pag
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   for (const state of previewStates) {
-    await page.goto(`/?uiPreview=${state}`)
+    await page.goto(`/?uiPreview=${state}&theme=light`)
     await expect(page.locator('#root')).not.toBeEmpty()
   }
 
@@ -58,7 +58,7 @@ for (const state of ['welcome', 'connecting', 'disconnected']) {
   ]) {
     test(`@visual ${state} ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport)
-      await page.goto(`/?uiPreview=${state}`)
+      await page.goto(`/?uiPreview=${state}&theme=light`)
       await expect(page.locator('main')).toBeVisible()
       await expect(page).toHaveScreenshot(`${state}-${viewport.name}.png`, {
         animations: 'disabled',

@@ -10,9 +10,9 @@
 .winner { min-height: 64px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(166, 111, 33, .42); border-left: 3px solid var(--color-gold); border-radius: var(--radius-md); background: var(--color-surface); }
 .winner > svg { color: var(--color-gold); }
 .winner > div { min-width: 0; display: grid; gap: 2px; }
-.winner strong { overflow: hidden; color: var(--color-text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.winner span { color: var(--color-text-secondary); font-size: 12px; }
-.winner small { color: var(--color-text-muted); font-size: 11px; }
+.winner > div > strong { overflow: hidden; color: var(--color-text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.winner > div > span { color: var(--color-text-secondary); font-size: 12px; }
+.winner > div > small { color: var(--color-text-muted); font-size: 11px; }
 .winner b { color: var(--color-gold); font: 750 15px/1 var(--font-mono); }
 .privacyNote { display: flex; align-items: center; gap: 10px; margin-top: var(--space-5); padding: 11px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); }
 .privacyNote svg { flex: 0 0 auto; color: var(--color-text-muted); }
@@ -46,3 +46,23 @@
   .hands { margin-top: 14px; padding-top: 12px; }
   .handGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.layout { display: block; } .winner b { font-size: 28px; color: var(--color-text); font-variant-numeric: tabular-nums; } .hands summary { min-height: 44px; display: list-item; padding: 12px 0; cursor: pointer; font-size: 14px; color: var(--color-text-secondary); }
+
+.winner { min-height: 100px; gap: 16px; padding: 20px; border: 1px solid color-mix(in srgb,var(--color-gold) 35%,var(--color-border)); border-radius: 14px; background: linear-gradient(115deg,color-mix(in srgb,var(--color-gold) 10%,var(--color-surface)),var(--color-surface)); }
+.winner .avatar { display: block; width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--color-gold); }
+.winner > div > strong { font-size: 16px; font-weight: 600; } .winner > div { gap: 7px; }
+.winner b { font: 600 30px/1 var(--font-sans); color: var(--color-gold); font-variant-numeric: tabular-nums; }
+@media(max-width:420px) { .winner { padding: 16px; gap: 12px; grid-template-columns: 38px minmax(0,1fr) auto; } .winner .avatar { width: 38px; height: 38px; } .winner > div > strong { font-size: 14px; } .winner b { font-size: 24px; } }
+
+.winner { grid-template-columns: 44px minmax(0,1fr) auto; gap: 14px; padding: 20px; background: linear-gradient(120deg,color-mix(in srgb,#d6b66c 9%,var(--color-surface)),var(--color-surface)); border-color: color-mix(in srgb,#c6a762 55%,var(--color-border)); }
+.winner .avatar { width: 44px; height: 44px; border-color: #c6a762; }
+.winner .awardAmount { color: #e8ce8b; font-size: 34px; }
+:global([data-theme='light']) .winner .awardAmount { color: #826020; }
+.winningCards { grid-column: 2/-1; padding-top: 2px; }
+.winningCards .cards { gap: 6px; }
+.winningCards .cardLabel { color: var(--color-text-secondary); }
+.winningCards .cards > span { width: 46px; }
+.hands { margin-top: 18px; padding-top: 8px; }
+.hands[open] .board { padding: 12px 0 22px; }
+@media(max-width:420px) { .winner { grid-template-columns: 32px minmax(0,1fr) auto; gap: 10px; padding: 14px; } .winner .avatar { width: 32px; height: 32px; } .winner .awardAmount { font-size: 26px; } .winningCards .cards > span { width: 40px; } }

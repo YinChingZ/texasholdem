@@ -3,9 +3,11 @@ import { useMemo } from 'react'
 export function deriveScreen({ room, gameState, connectionStatus, isReconnecting }) {
   if (isReconnecting) return 'reconnecting'
   if (connectionStatus === 'disconnected') return 'disconnected'
+  if (connectionStatus === 'connecting') return 'connecting'
+  if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return connectionStatus
   if (!room) return 'welcome'
   if (!gameState) return 'connecting'
-  if (gameState.gameState === 'WAITING') return 'lobby'
+  if (gameState.phase === 'LOBBY' || (!gameState.phase && gameState.gameState === 'WAITING')) return 'lobby'
   return 'game'
 }
 

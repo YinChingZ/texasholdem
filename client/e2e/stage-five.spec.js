@@ -12,11 +12,13 @@ test('settlement dialog closes consistently and keeps the next-hand action', asy
 test('sound settings persist the mute choice and close from the backdrop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/?uiPreview=game-turn&theme=light')
+  await page.getByRole('button', { name: '牌桌设置' }).click()
   await page.getByRole('button', { name: /音效设置/ }).click()
   await expect(page.getByRole('dialog', { name: '音效设置' })).toBeVisible()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.getByText('当前保持静音')).toBeVisible()
   await page.getByRole('button', { name: '完成' }).click()
+  await page.getByRole('button', { name: '牌桌设置' }).click()
   await page.getByRole('button', { name: /音效设置/ }).click()
   await expect(page.getByRole('button', { name: '关闭', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.mouse.click(5, 5)

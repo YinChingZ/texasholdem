@@ -31,3 +31,6 @@
   .body { padding: 12px 14px; }
   .footer { padding: 9px 14px; }
 }
+
+.dialog { border-radius: 20px; } .header { align-items: center; border-bottom-color: color-mix(in srgb,var(--color-border) 60%,transparent); } .header h2 { font-size: 20px; font-weight: 600; } .close { border: 0; border-radius: 50%; } .footer { background: transparent; }
+@media(max-width:620px) { .dialog { border-radius: 20px 20px 0 0; } }

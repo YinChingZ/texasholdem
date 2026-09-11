@@ -18,7 +18,7 @@ describe('Leaderboard', () => {
   it('shows host actions and invokes a new game', () => {
     const onNewGame = vi.fn()
     render(<Leaderboard players={players} isRoomCreator onNewGame={onNewGame} onLeaveRoom={() => {}} onCloseRoom={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('本局冠军').nextSibling).toHaveTextContent('乙')
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent('乙900')
     fireEvent.click(screen.getByRole('button', { name: /开始新游戏/ }))
     expect(onNewGame).toHaveBeenCalledOnce()
   })

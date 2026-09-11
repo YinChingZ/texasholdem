@@ -27,6 +27,19 @@ describe('HandResult', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('shows only supplied winning cards on the first view, without inferring opponents’ hands', () => {
+    const context = createPreviewValue('result-hidden')
+    const result = { ...context.handResult, winners: [{ playerId: 'winner', nickname: 'Winner', amount: 120 }], playersHands: [{ playerId: 'winner', hand: ['Ah', 'Ks'] }] }
+    const { baseElement: container } = render(<SocketContext.Provider value={context}>
+      <HandResult result={result} socket={context.socket} roomId="CLUB24" gameState={context.gameState} onClose={() => {}} />
+    </SocketContext.Provider>)
+    const winner = container.querySelector('article')
+    expect(winner.querySelector('[aria-label="红桃A"]')).toBeVisible()
+    expect(winner.querySelector('[aria-label="黑桃K"]')).toBeVisible()
+    expect(screen.getByText('其余手牌已隐藏')).toBeVisible()
+    expect(container.querySelectorAll('details article')).toHaveLength(1)
+  })
+
   it('does not offer another hand when only one player has chips', () => {
     const context = createPreviewValue('result-last-player')
     render(

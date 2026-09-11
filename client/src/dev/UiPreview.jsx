@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import GameTable from '../components/GameTable'
+import GameScreen from '../screens/GameScreen'
 import GlobalMessage from '../components/GlobalMessage'
 import { SocketContext } from '../contexts/socket-context'
 import { createPreviewValue, demoScript, previewStateNames } from './previewFixtures'
@@ -48,6 +49,13 @@ export default function UiPreview({ state }) {
 
   if (state === 'game-demo') {
     return <DemoPreview />
+  }
+
+  if (state === 'game-reveal-eight') {
+    const value = createPreviewValue('game-eight')
+    const gameState = { ...value.gameState, currentPlayerTurn: null, gameState: 'SHOWDOWN_COMPLETE', players: value.gameState.players.map(player => ({ ...player, currentBet: 0 })) }
+    const revealedHands = Object.fromEntries(gameState.players.map((player, index) => [player.id, [{ rank: String(index + 2), suit: 'Clubs' }, { rank: String(index + 2), suit: 'Diamonds' }]]))
+    return <SocketContext.Provider value={value}><GameScreen room={value.room} gameState={gameState} tableAwards={{ 'player-7': { amount: 280 } }} revealedHands={revealedHands} privateCards={value.privateCards} currentUserId={value.socket.id} isRoomCreator connectionStatus="connected" onPlayerAction={() => {}} onLeaveRoom={() => {}} onCloseRoom={() => {}} onEndGame={() => {}} onSoundSettings={() => {}} /></SocketContext.Provider>
   }
 
   if (state === 'message-allin') {

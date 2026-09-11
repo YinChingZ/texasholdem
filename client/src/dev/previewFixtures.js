@@ -29,6 +29,7 @@ const baseGame = {
   creator: 'player-1',
   currentPlayerTurn: 'player-1',
   currentBet: 40,
+  smallBlind: 10,
   bigBlind: 20,
   mainPot: 280,
   sidePots: [],
@@ -244,6 +245,10 @@ export const previewStateNames = [
   'game-two',
   'game-six',
   'game-eight',
+  'game-player-states',
+  'game-stress',
+  'game-reveal-eight',
+  'game-side-pots',
   'game-preflop',
   'game-turn-phase',
   'game-river',
@@ -295,7 +300,11 @@ export function createPreviewValue(state) {
       ? fullTablePlayers.slice(0, 2)
       : state === 'game-six'
         ? fullTablePlayers.slice(0, 6)
-        : state === 'game-eight'
+        : state === 'game-stress'
+          ? fullTablePlayers.map((player, index) => ({ ...player, nickname: `长昵称玩家${index + 1}测试完整显示`, chips: 123456, currentBet: 123456, status: 'in-game' }))
+          : state === 'game-player-states'
+          ? fullTablePlayers.map((player, index) => ({ ...player, status: ['in-game', 'folded', 'all-in', 'in-game', 'out-of-chips', 'in-game', 'in-game', 'folded'][index], chips: [1240,860,0,880,0,123456,1000,1000][index], connected: index !== 3, currentBet: index === 2 ? 1020 : player.currentBet }))
+          : state === 'game-eight'
           ? fullTablePlayers
           : state === 'game-no-raise'
             ? players.map((player) => player.id === 'player-1' ? { ...player, chips: 30, currentBet: 40 } : player)
@@ -307,8 +316,9 @@ export function createPreviewValue(state) {
       : previewPlayers
     gameState = {
       ...baseGame,
+      ...(state === 'game-side-pots' ? { mainPot: 180, sidePots: [{ amount: 100 }] } : {}),
       players: resultPlayers,
-      currentPlayerTurn: ['game-waiting', 'game-all-in'].includes(state) ? 'player-2' : 'player-1',
+      currentPlayerTurn: state === 'game-player-states' ? 'player-6' : ['game-waiting', 'game-all-in'].includes(state) ? 'player-2' : 'player-1',
       currentBet: state === 'game-no-raise' ? 80 : baseGame.currentBet,
       gameState: phase,
       communityCards: resultPreview ? communityCards : (phaseCards[state] ?? baseGame.communityCards),

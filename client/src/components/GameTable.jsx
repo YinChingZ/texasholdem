@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import GlobalMessage from './GlobalMessage'
 import HandResult from './HandResult'
 import Leaderboard from './Leaderboard'
@@ -24,6 +24,11 @@ export default function GameTable() {
     clearHandResult,
     isRoomCreator,
     isSpectator,
+    playerId,
+    recoveryVersion,
+    showLastResult,
+    takeover,
+    returnHome,
     roomSettings,
     connectionStatus,
     isReconnecting,
@@ -31,6 +36,8 @@ export default function GameTable() {
     attemptReconnect,
     notices,
     dismissNotice,
+    error,
+    clearError,
   } = useSocket()
 
   const [nickname, setNickname] = useState('')
@@ -38,17 +45,19 @@ export default function GameTable() {
   const [showSoundSettings, setShowSoundSettings] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const leaderboardSessionRef = useRef(null)
   const [showAllHands, setShowAllHands] = useState(true)
   const [initialChips, setInitialChips] = useState(1000)
   const [spectatorRoomId, setSpectatorRoomId] = useState(null)
 
-  const { displayState, displayHandResult, seatEvents, boardReveal, potFlights, revealedHands } = useTableSequencer({
+  const { displayState, displayHandResult, seatEvents, boardReveal, potFlights, revealedHands, tableAwards } = useTableSequencer({
     gameState,
     handResult,
-    heroId: socket?.id,
+    heroId: playerId ?? socket?.id,
+    recoveryVersion,
   })
   const { messages, removeMessage } = useGlobalMessages(displayState)
-  useDocumentTitle(gameState, socket?.id)
+  useDocumentTitle(gameState, playerId ?? socket?.id)
 
   useEffect(() => {
     const savedNickname = localStorage.getItem('texasholdem_nickname')
@@ -56,8 +65,13 @@ export default function GameTable() {
   }, [])
 
   useEffect(() => {
-    if (gameState?.gameState === 'GAME_OVER' && gameState.leaderboard) setShowLeaderboard(true)
-  }, [gameState])
+    const session = gameState?.sessionId ?? 'preview'
+    if (gameState?.gameState === 'GAME_OVER' && gameState.leaderboard && !handResult && leaderboardSessionRef.current !== session) {
+      leaderboardSessionRef.current = session
+      setShowLeaderboard(true)
+    }
+    if (gameState?.gameState !== 'GAME_OVER') leaderboardSessionRef.current = null
+  }, [gameState, handResult])
 
   useEffect(() => {
     const settings = roomSettings ?? gameState?.settings
@@ -72,13 +86,20 @@ export default function GameTable() {
     return () => socket.off('gameInProgress', handleGameInProgress)
   }, [socket, nickname])
 
+  const clearEntryNotices = () => {
+    clearError?.()
+    for (const notice of notices ?? []) dismissNotice(notice.id)
+  }
+
   const createRoom = () => {
+    clearEntryNotices()
     if (!nickname) return
     localStorage.setItem('texasholdem_nickname', nickname)
     socket.emit('createRoom', { nickname })
   }
 
   const joinRoom = () => {
+    clearEntryNotices()
     if (!nickname || !roomIdInput) return
     localStorage.setItem('texasholdem_nickname', nickname)
     socket.emit('joinRoom', { roomId: roomIdInput, nickname })
@@ -120,16 +141,21 @@ export default function GameTable() {
     gameState,
     connectionStatus,
     isReconnecting,
-    socketId: socket?.id,
+    socketId: playerId ?? socket?.id,
     isRoomCreator,
     isSpectator,
+    playerId,
+    recoveryVersion,
+    showLastResult,
+    takeover,
+    returnHome,
   })
 
   const spectatorDialog = (
     <ConfirmDialog
       open={Boolean(spectatorRoomId)}
       title="牌局正在进行"
-      description="这个房间已经开局。你可以旁观牌局并参与聊天，但不能在本局中行动。"
+      description="这个房间已经开局。你可以先旁观，在两手之间申请入座。"
       confirmLabel="以旁观者加入"
       tone="primary"
       onClose={() => setSpectatorRoomId(null)}
@@ -140,7 +166,7 @@ export default function GameTable() {
     />
   )
 
-  const noticeToasts = (notices ?? []).map((notice) => (
+  const noticeToasts = (viewModel.screen === 'welcome' ? [] : notices ?? []).map((notice) => (
     <GlobalMessage
       key={`notice-${notice.id}`}
       type="default"
@@ -151,21 +177,23 @@ export default function GameTable() {
     />
   ))
 
-  const withSpectatorDialog = (screen) => <>{screen}{spectatorDialog}{noticeToasts}</>
+  const errorToast = error && viewModel.screen !== 'welcome' ? <GlobalMessage key={`error-${error}`} type="default" message={error} show duration={5000} onComplete={() => clearError?.()} /> : null
+  const withSpectatorDialog = (screen) => <>{screen}{spectatorDialog}{noticeToasts}{errorToast}</>
 
   if (viewModel.screen === 'welcome') {
-    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={setNickname} onRoomIdChange={setRoomIdInput} onCreateRoom={createRoom} onJoinRoom={joinRoom} />)
+    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={value => { clearEntryNotices(); setNickname(value) }} onRoomIdChange={value => { clearEntryNotices(); setRoomIdInput(value) }} onCreateRoom={createRoom} onJoinRoom={joinRoom} error={error} notice={notices?.at(-1)?.message} />)
   }
-  if (viewModel.screen === 'connecting') return withSpectatorDialog(<ConnectionScreen kind="connecting" roomId={room?.id} />)
-  if (viewModel.screen === 'reconnecting') return withSpectatorDialog(<ConnectionScreen kind="reconnecting" roomId={room?.id} />)
-  if (viewModel.screen === 'disconnected') return withSpectatorDialog(<ConnectionScreen kind="disconnected" roomId={room?.id} onRetry={attemptReconnect} />)
+  if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return withSpectatorDialog(<ConnectionScreen kind={connectionStatus} roomId={room?.id} onTakeover={takeover} onHome={returnHome} />)
+  if (viewModel.screen === 'connecting') return withSpectatorDialog(<ConnectionScreen kind="connecting" roomId={room?.id} onHome={returnHome} />)
+  if (viewModel.screen === 'reconnecting') return withSpectatorDialog(<ConnectionScreen kind="reconnecting" roomId={room?.id} onHome={returnHome} />)
+  if (viewModel.screen === 'disconnected') return withSpectatorDialog(<ConnectionScreen kind="disconnected" roomId={room?.id} onRetry={attemptReconnect} onHome={returnHome} />)
 
   if (viewModel.screen === 'lobby') {
     return withSpectatorDialog(
       <LobbyScreen
         room={room}
         gameState={gameState}
-        currentUserId={socket?.id}
+        currentUserId={playerId ?? socket?.id}
         isRoomCreator={isRoomCreator}
         isSpectator={isSpectator}
         showAllHands={showAllHands}
@@ -184,7 +212,7 @@ export default function GameTable() {
     )
   }
 
-  if (!gameState?.players) return <ConnectionScreen kind="connecting" roomId={room?.id} />
+  if (!gameState?.players) return <ConnectionScreen kind="connecting" roomId={room?.id} onHome={returnHome} />
 
   return (
     <>
@@ -196,8 +224,9 @@ export default function GameTable() {
         boardReveal={boardReveal}
         potFlights={potFlights}
         revealedHands={revealedHands}
+        tableAwards={tableAwards}
         privateCards={privateCards}
-        currentUserId={socket?.id}
+        currentUserId={playerId ?? socket?.id}
         isRoomCreator={isRoomCreator}
         isSpectator={isSpectator}
         connectionStatus={connectionStatus}
@@ -208,6 +237,8 @@ export default function GameTable() {
         onResetGame={resetGame}
         onShowLeaderboard={() => setShowLeaderboard(true)}
         onSoundSettings={() => setShowSoundSettings(true)}
+        onShowLastResult={showLastResult}
+        onCommand={(event, payload = {}) => socket.emit(event, { roomId: room.id, ...payload })}
       />
 
       {displayHandResult && (
@@ -235,6 +266,7 @@ export default function GameTable() {
         <GlobalMessage key={message.id} type={message.type} message={message.message} show={message.show} duration={message.duration} onComplete={() => removeMessage(message.id)} />
       ))}
       {noticeToasts}
+      {errorToast}
       {spectatorDialog}
     </>
   )
