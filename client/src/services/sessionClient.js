@@ -177,7 +177,7 @@ export class SessionClient {
   }
 
   async command(event, payload = {}) {
-    const entry = event === 'createRoom' || event === 'joinRoom'
+    const entry = event === 'createRoom' || event === 'createTraining' || event === 'joinRoom'
     if (this.entering || !this.raw.connected || (!entry && this.state.connectionStatus !== 'synced') || (entry && this.state.connectionStatus !== 'connected')) {
       this.update({ error: '请等待连接与身份同步完成后再操作' }); return { ok: false, code: 'NOT_READY' }
     }

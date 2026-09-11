@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import TrainingWorkspace from './training/TrainingWorkspace'
+import ReportLibrary from './training/ReportLibrary'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import GlobalMessage from './GlobalMessage'
 import HandResult from './HandResult'
 import Leaderboard from './Leaderboard'
@@ -40,6 +42,8 @@ export default function GameTable() {
     clearError,
   } = useSocket()
 
+  const [showReports, setShowReports] = useState(false)
+  const trainingCommand = useCallback((event, payload = {}) => socket.emit(event, { roomId: room?.id, ...payload }), [socket, room?.id])
   const [nickname, setNickname] = useState('')
   const [roomIdInput, setRoomIdInput] = useState('')
   const [showSoundSettings, setShowSoundSettings] = useState(false)
@@ -180,13 +184,16 @@ export default function GameTable() {
   const errorToast = error && viewModel.screen !== 'welcome' ? <GlobalMessage key={`error-${error}`} type="default" message={error} show duration={5000} onComplete={() => clearError?.()} /> : null
   const withSpectatorDialog = (screen) => <>{screen}{spectatorDialog}{noticeToasts}{errorToast}</>
 
+  if (viewModel.screen === 'welcome' && showReports) return <ReportLibrary onBack={() => setShowReports(false)} />
   if (viewModel.screen === 'welcome') {
-    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={value => { clearEntryNotices(); setNickname(value) }} onRoomIdChange={value => { clearEntryNotices(); setRoomIdInput(value) }} onCreateRoom={createRoom} onJoinRoom={joinRoom} error={error} notice={notices?.at(-1)?.message} />)
+    return withSpectatorDialog(<WelcomeScreen nickname={nickname} roomId={roomIdInput} onNicknameChange={value => { clearEntryNotices(); setNickname(value) }} onRoomIdChange={value => { clearEntryNotices(); setRoomIdInput(value) }} onCreateTraining={() => { clearEntryNotices(); localStorage.setItem('texasholdem_nickname', nickname); socket.emit('createTraining', { nickname }) }} onShowReports={() => setShowReports(true)} onCreateRoom={createRoom} onJoinRoom={joinRoom} error={error} notice={notices?.at(-1)?.message} />)
   }
   if (['in-use', 'replaced', 'expired', 'protocol-error'].includes(connectionStatus)) return withSpectatorDialog(<ConnectionScreen kind={connectionStatus} roomId={room?.id} onTakeover={takeover} onHome={returnHome} />)
   if (viewModel.screen === 'connecting') return withSpectatorDialog(<ConnectionScreen kind="connecting" roomId={room?.id} onHome={returnHome} />)
   if (viewModel.screen === 'reconnecting') return withSpectatorDialog(<ConnectionScreen kind="reconnecting" roomId={room?.id} onHome={returnHome} />)
   if (viewModel.screen === 'disconnected') return withSpectatorDialog(<ConnectionScreen kind="disconnected" roomId={room?.id} onRetry={attemptReconnect} onHome={returnHome} />)
+
+  if (gameState?.mode === 'training') return <TrainingWorkspace key={gameState.sessionId} state={gameState} privateCards={privateCards} onCommand={trainingCommand} onHome={leaveRoom} error={error} />
 
   if (viewModel.screen === 'lobby') {
     return withSpectatorDialog(

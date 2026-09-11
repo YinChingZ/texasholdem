@@ -8,7 +8,7 @@ const allowedOrigins = [
   'https://texasholdem-beige.vercel.app', 'https://texasholdem.top', 'https://www.texasholdem.top',
   'http://localhost:5173',
 ];
-const commands = ['createRoom', 'joinRoom', 'startGame', 'playerAction', 'prepareNextHand', 'pauseGame',
+const commands = ['createTraining', 'saveObservation', 'dismissObservation', 'fastForward', 'getTrainingReport', 'createRoom', 'joinRoom', 'startGame', 'playerAction', 'prepareNextHand', 'pauseGame',
   'resumeGame', 'endGame', 'resetGame', 'closeRoom', 'leaveRoom', 'switchToPlayer', 'switchToSpectator',
   'returnToTable', 'releaseSeat', 'updateRoomSettings', 'updateInitialChips', 'sendMessage', 'syncSession', 'commandStatus'];
 

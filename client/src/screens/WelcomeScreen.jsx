@@ -3,7 +3,7 @@ import { Button, Input } from '../components/ui/Primitives'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import styles from './WelcomeScreen.module.css'
 
-export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRoomIdChange, onCreateRoom, onJoinRoom, error, notice }) {
+export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRoomIdChange, onCreateRoom, onJoinRoom, onCreateTraining, onShowReports, error, notice }) {
   const errorCopy = { 'Room not found': '房间不存在，请检查房间号', 'Room is full': '房间已满，请联系房主' }[error] ?? error
   const canCreate = nickname.trim().length > 0
   const canJoin = canCreate && roomId.trim().length > 0
@@ -13,6 +13,8 @@ export default function WelcomeScreen({ nickname, roomId, onNicknameChange, onRo
       <section className={styles.entry} aria-label="进入牌局">
         <header><Spade size={32} fill="currentColor" /><h1>德州扑克</h1></header>
         <Input id="nickname" label="昵称" autoComplete="nickname" maxLength={20} placeholder="你在牌桌上的名字" value={nickname} onChange={event => onNicknameChange(event.target.value)} />
+        <Button disabled={!canCreate} onClick={onCreateTraining} className={styles.fullButton}>观察练习</Button>
+        <Button variant="ghost" onClick={onShowReports}>查看练习报告</Button>
         <form onSubmit={event => { event.preventDefault(); if (canCreate) onCreateRoom() }}>
           <Button type="submit" disabled={!canCreate} className={styles.fullButton}>创建新房间</Button>
         </form>

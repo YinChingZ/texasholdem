@@ -1,0 +1,21 @@
+.page { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; color: var(--color-text); }
+.header, .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.header h1 { font-size: 22px; margin: 0; }
+.page p { line-height: 1.7; }
+.panel { border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 14px; padding: 16px; margin: 14px 0; }
+.panel h2 { font-size: 18px; margin: 0 0 12px; }
+.tools { justify-content: flex-start; }
+.field { display: grid; gap: 8px; margin: 12px 0; }
+.field textarea, .field select { font: inherit; color: inherit; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; width: 100%; }
+.field textarea { min-height: 110px; resize: vertical; }
+.cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.note { border-left: 3px solid var(--color-gold); padding: 4px 12px; margin: 12px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.error { color: var(--color-danger); }
+.page button { min-height: 42px; }
+.page details summary { cursor: pointer; padding: 8px 0; }
+.table { overflow-x: auto; }
+.table table { width: 100%; border-collapse: collapse; }
+.table td, .table th { text-align: left; padding: 8px; border-bottom: 1px solid var(--color-border); }
+.library { margin-top: 16px; width: 100%; }
+@media (max-width: 700px) { .page { padding: 12px 8px 28px; } .header h1 { font-size: 19px; } .panel { padding: 12px; } }

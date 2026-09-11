@@ -14,7 +14,8 @@ class Card {
 }
 
 class Deck {
-    constructor() {
+    constructor(random = Math.random) {
+        this.random = random;
         this.cards = [];
         const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
         const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -29,7 +30,7 @@ class Deck {
 
     shuffle() {
         for (let i = this.cards.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(this.random() * (i + 1));
             [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
         }
     }    deal() {
@@ -54,16 +55,17 @@ class Player {
 }
 
 class Game {
-    constructor(players, smallBlind = 5, bigBlind = 10) {
+    constructor(players, smallBlind = 5, bigBlind = 10, random = Math.random) {
+        this.random = random;
         this.players = players;
         this.smallBlind = smallBlind;
         this.bigBlind = bigBlind;
-        this.deck = new Deck();
+        this.deck = new Deck(this.random);
         this.mainPot = 0;
         this.sidePots = []; // 用于存储边池
         this.communityCards = [];
         this.gameState = 'WAITING'; // 'WAITING', 'PREFLOP', 'FLOP', 'TURN', 'RIVER', 'SHOWDOWN'
-        this.dealerPosition = Math.floor(Math.random() * players.length);
+        this.dealerPosition = Math.floor(this.random() * players.length);
         this.smallBlindPosition = -1;
         this.bigBlindPosition = -1;
         this.currentPlayerTurn = -1;
@@ -101,7 +103,7 @@ class Game {
             startSeat = Math.min(this._lastButtonSeat, n - 1) - 1;
         } else {
             // 首手：随机起始座位（-1 使下方 +1 后落在随机座位）
-            startSeat = Math.floor(Math.random() * n) - 1;
+            startSeat = Math.floor(this.random() * n) - 1;
         }
 
         for (let step = 1; step <= n; step++) {
@@ -137,7 +139,7 @@ class Game {
         }
 
         this.gameState = 'PREFLOP';
-        this.deck = new Deck();
+        this.deck = new Deck(this.random);
         this.mainPot = 0;
         this.sidePots = [];
         this.communityCards = [];
@@ -846,7 +848,7 @@ class Game {
         return false;
     }    // 重置手牌状态
     _resetHandState() {
-        this.deck = new Deck();
+        this.deck = new Deck(this.random);
         this.mainPot = 0;
         this.sidePots = [];
         this.communityCards = [];

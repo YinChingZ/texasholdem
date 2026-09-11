@@ -7,7 +7,7 @@ import { getPlayerRole } from './gameState'
 import { formatChips } from './tableLayout'
 import styles from './PlayerSeat.module.css'
 const stateIcons = { folded: X, allin: Zap, current: Circle, offline: WifiOff, out: Minus, winner: Trophy }
-export default function PlayerSeat({ placement, players, gameState, actionEvent, revealedCards, isHero, privateCards = [], livePlayer, award }) {
+export default function PlayerSeat({ placement, players, gameState, actionEvent, revealedCards, isHero, privateCards = [], livePlayer, award, onInspect }) {
   const { player: displayPlayer, seatIndex, x, y, bet } = placement
   const player = isHero && livePlayer ? { ...displayPlayer, chips: livePlayer.chips, status: livePlayer.status } : displayPlayer
   const presentation = playerPresentation(player, gameState.currentPlayerTurn, award)
@@ -16,7 +16,7 @@ export default function PlayerSeat({ placement, players, gameState, actionEvent,
   const roles = getPlayerRole(player, players, gameState)
   const cards = isHero ? privateCards : revealedCards
   return (<>
-    <article className={`${styles.seat} ${isHero ? styles.hero : ''} ${styles[kind] ?? ''}`} style={{ left: `${x}%`, top: `${y}%` }} data-player-state={kind} data-columns={placement.columns} data-band={y > 35 && y < 60 ? 'middle' : undefined} data-edge={y < 15 ? 'top' : x < 50 ? 'left' : x > 50 ? 'right' : 'bottom'} data-seat-index={seatIndex} data-player-id={player.id} aria-label={`${player.nickname}，${stateLabel || '等待'}${isOffline && kind !== 'offline' ? '，已离线' : ''}`}>
+    <article role={onInspect && !isHero ? 'button' : undefined} tabIndex={onInspect && !isHero ? 0 : undefined} onClick={() => !isHero && onInspect?.(player.id)} onKeyDown={e => { if (!isHero && onInspect && ['Enter', ' '].includes(e.key)) { e.preventDefault(); onInspect(player.id) } }} className={`${styles.seat} ${isHero ? styles.hero : ''} ${styles[kind] ?? ''}`} style={{ left: `${x}%`, top: `${y}%` }} data-player-state={kind} data-columns={placement.columns} data-band={y > 35 && y < 60 ? 'middle' : undefined} data-edge={y < 15 ? 'top' : x < 50 ? 'left' : x > 50 ? 'right' : 'bottom'} data-seat-index={seatIndex} data-player-id={player.id} aria-label={`${player.nickname}，${stateLabel || '等待'}${isOffline && kind !== 'offline' ? '，已离线' : ''}`}>
       {!isHero && !cards?.length && ['in-game', 'all-in'].includes(player.status) && gameState.gameState !== 'SHOWDOWN_COMPLETE'
         ? <div className={styles.coveredHand} aria-hidden="true"><i /><i /></div>
         : <PlayerAvatar name={player.nickname} className={styles.avatar} />}

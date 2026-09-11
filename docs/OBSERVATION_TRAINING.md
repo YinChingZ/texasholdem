@@ -1,0 +1,38 @@
+# 单人观察训练 v1
+
+首页输入昵称后选择“观察练习”。一名真人与三名风格隐藏的电脑打 20 手，每手重置到 1000 筹码，盲注固定 5/10。目标是观察、记录并修正判断，不提供最优策略或总分。
+
+## 操作
+
+- 真人没有行动倒计时；电脑默认 800ms 行动。暂停立即停止所有训练任务，断线自动暂停，重连后点击继续。
+- 弃牌后可快速看完本手。第 5、10、15 手结束邀请记录观察，提交或跳过后才续局，其余手间隔 3 秒。
+- 点击对手席位或观察按钮记录笔记，可关联已完成手牌并选择把握程度。公开行动记录可查每手下注过程。
+- 结束练习会在本手结算后生成报告；尚未完成第一手则直接退出。报告先展示当时信息，额外底牌和后续结果需要主动揭示。
+- 完成报告在 IndexedDB 按场次去重，保留最新 20 份，可在首页查看或删除。保存失败仍可下载 JSON。进行中的牌局不能在服务重启后恢复；报告不跨设备同步。
+
+## 实现边界
+
+`room-service.js` 继续作为房间写入口。`training-service.js` 管理训练生命周期、电脑席位及观察命令；`training.js` 提供公开观察接口、规则策略与报告统计。电脑不具备 Socket、令牌或房主权限，不访问其他底牌、牌堆或笔记。时钟、牌堆随机源与策略随机源可以分别注入测试。
+
+协议 v2 新增 `createTraining`、`saveObservation`、`dismissObservation`、`fastForward`、`getTrainingReport`。观察命令保存 playerId、text（最多 2000 字符）、confidence（tentative/confident）、hands（已完成手数）。成员命令沿用 generation 与 requestId，下注继续校验 handId/turnId。报告只在结束后向房主的认证请求返回；普通快照只含训练进度、笔记和已公开行动，不含完整档案或策略参数。前后端需同时更新。
+
+训练的 PAUSED 包括显式暂停（paused=true）和手间观察等待（pendingPrompt=true）。前者停止一切任务，后者允许保存记录并等待继续；多人暂停语义不变。训练结束和关闭会清理所有手牌任务。无人回收仍为 30 分钟，仅真人连接计入在线人数。
+
+## 证据与局限
+
+主动入池按有翻牌前主动行动机会的手牌统计，盲注不算。加注按筹码超过待跟金额的行动机会统计；面对下注弃牌按待跟金额大于零的行动机会统计，均显示分母及关联手牌。没有机会显示暂无样本。
+
+策略版本 observation-v1 的谨慎、偏爱跟注、偏激进档案通过参与阈值、跟注意愿和加注概率区分，并考虑位置、起手牌、成牌/听牌、成本及有效筹码。策略是用于观察练习的启发式策略，不是专业求解器。报告保存该版本和具体参数，区分预设倾向与实际样本，不自动评判自由笔记。
+
+## 验证
+
+```sh
+npm --prefix server test
+npm --prefix client test
+npm --prefix client run lint
+npm --prefix client run build
+cd client
+E2E_PORT=5178 E2E_API_PORT=3118 npx playwright test e2e/training.spec.js e2e/training-storage.spec.js e2e/session-recovery.spec.js e2e/multiplayer-flow.spec.js --workers=1
+```
+
+覆盖 20 手运行、筹码守恒、随机复现、策略差异、隐藏信息边界、幂等、暂停/断线/自动发牌任务失效、观察提示与报告选手、复盘分步揭示、IndexedDB 上限与失败、手机无横向溢出及多人恢复回归。
