@@ -109,3 +109,15 @@ test('training seat and button identities remain stable across the intermission'
  assert.equal(state.players[state.dealerPosition].id,h.room.game.dealerPlayerId);
  h.step();assert.deepEqual(h.service.snapshot(h.room,h.hero).players.map(p=>p.id),seats);h.service.dispose();
 });
+test('live coaching appears before a human turn, freezes after the action, and restores on reconnect',async()=>{
+ const h=setup();while(h.room.game.activePlayers[h.room.game.currentPlayerTurn]?.id!==h.hero.id)h.step();
+ const pre=h.service.snapshot(h.room,h.hero).training.coach.current;assert(pre);assert.equal(pre.price.pot,h.room.game.mainPot);
+ const action={handId:h.room.handId,turnId:h.room.turnId,action:'fold'};
+ assert(h.command('playerAction',action).ok);const feedback=structuredClone(h.room.training.latestFeedback);assert.equal(feedback.action,'fold');
+ assert(h.command('pauseGame').ok);h.service.disconnect('a');
+ assert((await h.service.resume('b',{protocolVersion:2,requestId:'coaching-restore',roomId:h.room.id,token:h.hero.token})).ok);
+ assert.deepEqual(h.service.snapshot(h.room,h.hero).training.coach.latest,feedback);
+ assert(h.command('resumeGame').ok);h.until(1);
+ assert.deepEqual(h.room.training.hands[0].feedback[0],feedback);assert.deepEqual(h.room.training.latestFeedback,feedback);
+ h.service.dispose();
+});

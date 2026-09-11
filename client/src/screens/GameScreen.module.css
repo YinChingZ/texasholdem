@@ -14,3 +14,7 @@
  .playColumn { grid-template-rows: minmax(270px, 1fr) 72px; padding: 0 12px; }
  .actionArea { padding: 0; width: min(650px, 100%); }
 }
+
+.playColumn { height: auto; min-height: 100%; grid-template-rows: auto auto auto; align-content: center; }
+.body { align-items: start; }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 701px) { .playColumn { grid-template-rows: auto auto auto; } }

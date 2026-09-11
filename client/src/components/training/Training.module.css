@@ -19,3 +19,21 @@
 .table td, .table th { text-align: left; padding: 8px; border-bottom: 1px solid var(--color-border); }
 .library { margin-top: 16px; width: 100%; }
 @media (max-width: 700px) { .page { padding: 12px 8px 28px; } .header h1 { font-size: 19px; } .panel { padding: 12px; } }
+
+.coach { border-color: var(--color-border-strong); }
+.coach .header h2 { margin: 0; }
+.coachIntro { color: var(--color-text-secondary); font-size: 14px; }
+.coach li { margin: 10px 0; line-height: 1.7; }
+.takeaway { border-left: 3px solid var(--color-gold); padding: 8px 14px; background: var(--color-control); border-radius: 0 8px 8px 0; }
+.coachQuestion { color: var(--color-text); font-weight: 600; }
+.beforeAdvice { margin-top: 14px; border-top: 1px solid var(--color-border); padding-top: 8px; }
+.pauseCoach { margin-top: 12px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-control); color: var(--color-text); font: inherit; cursor: pointer; }
+
+.practice { max-width: 1320px; }
+.trainingPlay { min-width: 0; }
+.trainingLayout { display: grid; gap: 16px; }
+.trainingLayout > .coach { margin: 0; min-width: 0; }
+@media (min-width: 1050px) {
+  .trainingLayout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 24px; }
+  .trainingLayout > .coach { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow: auto; }
+}

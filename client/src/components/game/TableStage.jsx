@@ -13,7 +13,7 @@ export default function TableStage({ gameState, seatEvents = {}, boardReveal, po
   const anchorId = isSpectator ? gameState.creator : currentUserId
   const layout = layoutTable(arrangePlayers(players, anchorId), mobile, landscape, Object.keys(revealedHands).length > 0)
   return (
-    <section className={styles.stage} aria-label={`${players.length} 人牌桌`} data-testid="table-stage" data-players={players.length}>
+    <section className={styles.stage} aria-label={`${players.length} 人牌桌`} data-testid="table-stage" data-players={players.length} data-rows={layout.rows} data-revealed={Object.keys(revealedHands).length > 0}>
       {layout.placements.map(placement => <PlayerSeat onInspect={onInspect} key={placement.player.id} placement={placement} players={players} gameState={gameState} actionEvent={seatEvents[placement.player.id]} revealedCards={revealedHands[placement.player.id]} isHero={!isSpectator && placement.player.id === currentUserId} privateCards={privateCards} livePlayer={livePlayer} award={tableAwards[placement.player.id]} />)}
       {potFlights.map(flight => <ChipFlight key={flight.id} flight={flight} placements={layout.placements} pot={layout.pot} />)}
       <CommunityBoard gameState={gameState} boardReveal={boardReveal} layout={layout} />

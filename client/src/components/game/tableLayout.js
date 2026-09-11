@@ -8,18 +8,18 @@ export function layoutTable(placements, mobile, landscape = false, revealed = fa
   const rows = !landscape && opponents > (mobile ? 3 : 4) ? 2 : 1
   const firstRowCount = rows === 1 ? opponents : mobile ? Math.min(3, Math.ceil(opponents / 2)) : Math.ceil(opponents / 2)
   const secondRowCount = opponents - firstRowCount
-  const pot = { x: landscape ? 33 : 50, y: landscape ? 47 : rows === 2 ? (revealed ? 54 : mobile ? 47 : 45) : 39 }
-  const board = { x: landscape ? 33 : 50, y: landscape ? 70 : rows === 2 ? (revealed ? 68 : mobile ? 61 : 59) : 55 }
-  return { pot, board, placements: placements.map((placement, index) => {
-    if (index === 0) return { ...placement, x: landscape ? 75 : 50, y: landscape ? 72 : 91, bet: { x: landscape ? 75 : 50, y: landscape ? 47 : 77 }, columns: 1 }
+  const pot = { x: landscape ? 33 : 50, y: landscape ? 47 : rows === 2 ? (revealed ? 54 : 52) : 41 }
+  const board = { x: landscape ? 33 : 50, y: landscape ? 70 : rows === 2 ? (revealed ? 68 : 66) : 59 }
+  return { rows, pot, board, placements: placements.map((placement, index) => {
+    if (index === 0) return { ...placement, x: landscape ? 75 : 50, y: landscape ? 72 : 89, bet: { x: landscape ? 75 : 50, y: landscape ? 47 : rows === 2 ? 77 : 74 }, columns: 1 }
     const opponentIndex = index - 1
     const isSecondRow = rows === 2 && opponentIndex >= firstRowCount
     const count = isSecondRow ? secondRowCount : firstRowCount
     const column = isSecondRow ? opponentIndex - firstRowCount : opponentIndex
     const width = count === 1 ? 0 : count === 2 ? 50 : count === 3 ? 68 : count === 4 ? 75 : 86
     const x = count === 1 ? 50 : 50 - width / 2 + column * width / (count - 1)
-    const y = landscape ? 11 : rows === 2 ? (isSecondRow ? (revealed ? 34 : 29) : 10) : 17
-    const bet = { x, y: y + (landscape ? 20 : 10) }
+    const y = landscape ? 11 : rows === 2 ? (isSecondRow ? (revealed ? 34 : 31) : 10) : 17
+    const bet = { x, y: y + (landscape ? 22 : 12) }
     return { ...placement, x, y, bet, columns: count }
   }) }
 }

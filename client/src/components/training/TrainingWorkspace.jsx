@@ -5,6 +5,7 @@ import { Button } from '../ui/Primitives'
 import ModalDialog from '../ui/ModalDialog'
 import ThemeToggle from '../ui/ThemeToggle'
 import TrainingReport from './TrainingReport'
+import TrainingCoach from './TrainingCoach'
 import { saveReport } from '../../services/trainingReports'
 import styles from './Training.module.css'
 
@@ -59,7 +60,7 @@ export default function TrainingWorkspace({ state, privateCards, onCommand, onHo
   if (report) return <TrainingReport report={report} saved={saved} saveError={saveError} onBack={onHome} />
   if (state.phase === 'ENDED') return <main className={styles.page}><h1>正在准备观察报告</h1>{fetchError && <p role="alert">{fetchError}</p>}<Button onClick={() => setRetry(retry + 1)}>重新获取报告</Button></main>
   const seconds = Math.max(0, Math.ceil((state.nextHandAt - now - clockOffset) / 1000))
-  return <main className={styles.page}>
+  return <main className={`${styles.page} ${styles.practice}`}>
     <header className={styles.header}><h1>观察练习 · {state.training.completed} / 20 手</h1><ThemeToggle /></header>
     <p>观察三名对手，用具体行动支持判断。盲注 5/10 · 每手重置筹码至 1000 · 不淘汰</p>
     <div className={styles.tools}>
@@ -71,10 +72,12 @@ export default function TrainingWorkspace({ state, privateCards, onCommand, onHo
     {hints && <details className={styles.panel}><summary>规则与观察提示</summary><p>庄家按钮决定行动顺序；小盲与大盲是强制投入，不能作为“主动入池”的证据。跟注补齐当前差额，加注是在跟注之外额外投入。免费过牌不需要投入筹码。</p><p>观察同一对手在不同位置、街道和下注尺度下的行为。一次摊牌只是一个样本；不确定时可以保留判断。</p></details>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {state.phase === 'ERROR' && <section className={styles.panel}><p role="alert">练习状态异常，请退出后重新开始。</p><Button onClick={onHome}>返回首页</Button></section>}
+    <div className={styles.trainingLayout}><div className={styles.trainingPlay}>
     <TableStage gameState={state} currentUserId={heroId} privateCards={privateCards} livePlayer={player} onInspect={id => setOpponent(state.players.find(p => p.id === id))} />
     {state.paused ? <p role="status">练习已暂停，所有行动已停止。</p> : <ActionDock player={player} gameState={state} onAction={(action, betAmount) => onCommand('playerAction', { action, betAmount })} />}
     {state.nextHandAt && !state.paused && <p role="status">下一手将在 {seconds} 秒后开始</p>}
     {state.endRequested && <p role="status">本手结算后生成报告，请完成剩余行动。</p>}
+    </div><TrainingCoach coach={state.training.coach} paused={state.paused} onPause={() => onCommand('pauseGame')} /></div>
     <section className={styles.panel}><h2>对手观察</h2><p>点击头像或姓名记录观察；每次保存都会保留判断变化。</p><div className={styles.tools}>{state.players.filter(p => p.id !== heroId).map(p => <Button key={p.id} variant="ghost" onClick={() => setOpponent(p)}>观察 {p.nickname}</Button>)}</div></section>
     {state.training.pendingPrompt && <section className={styles.panel} aria-label="手间观察提示"><h2>你对哪位对手有了新的判断？依据是哪一手？</h2><p>可通过上方对手入口保存笔记，也可以跳过。此时不会自动开下一手。</p><Button onClick={() => onCommand('dismissObservation')}>完成记录，继续</Button> <Button variant="ghost" onClick={() => onCommand('dismissObservation')}>跳过观察</Button></section>}
     <details className={styles.panel}><summary>公开行动记录</summary>{state.training.history?.map(hand => <details key={hand.number}><summary>第 {hand.number} 手</summary><ol>{hand.events.map((event, i) => <li key={i}>{event.type === 'action' ? `${{PREFLOP:'翻牌前',FLOP:'翻牌',TURN:'转牌',RIVER:'河牌'}[event.before.street]} · ${state.players.find(p => p.id === event.before.playerId)?.nickname}：${{fold:'弃牌',check:'过牌',call:'跟注',raise:'加注',bet:'下注'}[event.action]}，投入 ${event.invested}` : event.type === 'blind' ? `${state.players.find(p => p.id === event.playerId)?.nickname}：强制盲注 ${event.amount}` : `公共牌：${event.cards.map(c => typeof c === 'string' ? c : `${c.rank}${{Hearts:'♥',Diamonds:'♦',Clubs:'♣',Spades:'♠'}[c.suit]}`).join(' ')}`}</li>)}</ol></details>)}</details>

@@ -1,5 +1,6 @@
 const { Player } = require('./game');
 const T = require('./training');
+const Coach = require('./training-coach');
 const fail = (message) => Object.assign(new Error(message),{code:'INVALID_TRAINING_COMMAND'});
 module.exports = {
   createTraining(room) {
@@ -62,12 +63,29 @@ module.exports = {
       holes:T.copy(g.activePlayers.map(p=>({playerId:p.id,hand:p.hand}))),
       events:g.activePlayers.filter(p=>p.currentBet>0).map(p=>({type:'blind',playerId:p.id,amount:p.currentBet})),boardCount:0};
   },
+  coachInput(room, decision) {
+    return T.copy({selfId:room.creator, hand:room.members.get(room.creator).player.hand, decision,
+      names:Object.fromEntries(this.members(room).map(m=>[m.id,m.nickname])),
+      history:[...room.training.hands, ...(room.training.current && !room.training.hands.includes(room.training.current) ? [room.training.current] : [])].map(h=>({events:h.events.filter(e=>e.type==='action')}))});
+  },
+  coachingFor(room) {
+    const actor=room.game.activePlayers[room.game.currentPlayerTurn];
+    const current=this.inHand(room)&&actor?.id===room.creator&&actor.status==='in-game'
+      ? Coach.analyzeDecision(this.coachInput(room,T.before(room.game,room.creator))) : null;
+    return {current,latest:room.training.latestFeedback || null};
+  },
   executeAction(room,id,action,amount=0) {
     const state=room.training?T.before(room.game,id):null;
+    const coachInput=state&&id===room.creator?this.coachInput(room,state):null;
     const result=room.game.playerAction(id,action,amount);
     if(state) {
       const invested=['check','fold'].includes(action)?0:Math.min(state.chips,state.call+(['raise','bet'].includes(action)?room.game.constructor._sanitizeAmount(amount):0));
       room.training.current.events.push({type:'action',before:state,action,invested});
+      if(coachInput) {
+        const feedback={...Coach.explainAction(coachInput,action,invested),handNumber:room.training.current.number,actionIndex:room.training.current.events.filter(e=>e.type==='action').length};
+        room.training.latestFeedback=feedback;
+        (room.training.current.feedback ||= []).push(feedback);
+      }
     }
     this.advance(room,result);
   },
