@@ -31,6 +31,8 @@ export default function GameScreen({
   isRoomCreator,
   isSpectator,
   connectionStatus,
+  onCopyInvite,
+  copySuccess,
   onPlayerAction,
   onLeaveRoom,
   onCloseRoom,
@@ -72,6 +74,8 @@ export default function GameScreen({
   return (
     <main className={`game-main-container ${styles.shell}`}>
       <GameHeader
+        onCopyInvite={onCopyInvite}
+        copySuccess={copySuccess}
         roomId={room.id}
         gameState={gameState}
         isSpectator={isSpectator}

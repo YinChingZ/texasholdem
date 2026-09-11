@@ -52,7 +52,7 @@ export default function LobbyScreen({ room, gameState, currentUserId, isRoomCrea
   const requestConfirmation = kind => { setPanel(null); setConfirmation(kind) }
   const confirmationCopy = confirmations[confirmation]
   return <main className={styles.shell}>
-    <Toast message={copySuccess ? '房间号已复制' : ''} />
+    <Toast message={copySuccess ? '邀请链接已复制' : ''} />
     <header className={styles.topbar}>
       <strong>德州扑克</strong>
       <div className={styles.tools}>
@@ -63,7 +63,7 @@ export default function LobbyScreen({ room, gameState, currentUserId, isRoomCrea
     <div className={styles.mainColumn}>
       <section className={styles.roomHeading}>
         <div><span>房间号</span><h1 data-testid="room-code">{room.id}</h1></div>
-        <Button variant="ghost" onClick={onCopyRoomId} aria-label="复制房间号">{copySuccess ? <Check size={18} /> : <Copy size={18} />}复制邀请</Button>
+        <Button variant="ghost" onClick={onCopyRoomId} aria-label="复制邀请链接">{copySuccess ? <Check size={18} /> : <Copy size={18} />}复制邀请</Button>
       </section>
       <section className={styles.roster} aria-labelledby="participant-title">
         <header><h2 id="participant-title">玩家 <span>{players.length}/8</span></h2></header>

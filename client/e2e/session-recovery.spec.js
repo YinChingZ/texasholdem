@@ -109,3 +109,25 @@ test('首次握手短暂失败再成功，全程保留首页与输入且不闪�
   expect(await page.evaluate(()=>window.entryHeadings)).toEqual(['德州扑克'])
   await expect(page.getByLabel('昵称')).toHaveValue('新玩家')
 })
+
+test('邀请链接可在大厅和牌桌复制，朋友打开后预填房间号并加入', async ({ browser }) => {
+  const host = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] })
+  const guest = await browser.newContext()
+  try {
+    const a = await host.newPage(), b = await guest.newPage()
+    const room = await create(a)
+    await a.getByRole('button', { name: '复制邀请链接', exact: true }).click()
+    const link = await a.evaluate(() => navigator.clipboard.readText())
+    expect(new URL(link).searchParams.get('room')).toBe(room)
+    await b.goto(link)
+    await expect(b.getByLabel('房间号')).toHaveValue(room)
+    await b.getByLabel('昵称').fill('受邀朋友')
+    await b.getByRole('button', { name: '加入房间', exact: true }).click()
+    await expect(b.getByTestId('room-code')).toHaveText(room)
+    await a.getByRole('button', { name: '开始游戏', exact: true }).click()
+    await expect(a.getByTestId('table-stage')).toBeVisible()
+    await expect(a.getByRole('button', { name: '复制邀请链接', exact: true })).toBeVisible()
+    await a.getByRole('button', { name: '复制邀请链接', exact: true }).click()
+    expect(await a.evaluate(() => navigator.clipboard.readText())).toBe(link)
+  } finally { await host.close(); await guest.close() }
+})

@@ -1,3 +1,4 @@
+import { createInviteLink, readInviteRoom } from '../utils/roomInvite'
 import TrainingWorkspace from './training/TrainingWorkspace'
 import ReportLibrary from './training/ReportLibrary'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -47,7 +48,7 @@ export default function GameTable() {
   const [showReports, setShowReports] = useState(false)
   const trainingCommand = useCallback((event, payload = {}) => socket.emit(event, { roomId: room?.id, ...payload }), [socket, room?.id])
   const [nickname, setNickname] = useState('')
-  const [roomIdInput, setRoomIdInput] = useState('')
+  const [roomIdInput, setRoomIdInput] = useState(() => readInviteRoom(window.location.href))
   const [showSoundSettings, setShowSoundSettings] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
@@ -134,11 +135,11 @@ export default function GameTable() {
 
   const copyRoomId = async () => {
     try {
-      await navigator.clipboard.writeText(room.id)
+      await navigator.clipboard.writeText(createInviteLink(window.location.href, room.id))
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
-    } catch (error) {
-      console.error('复制房间号失败', error)
+    } catch {
+      window.prompt('请手动复制邀请链接', createInviteLink(window.location.href, room.id))
     }
   }
 
@@ -240,6 +241,8 @@ export default function GameTable() {
         isRoomCreator={isRoomCreator}
         isSpectator={isSpectator}
         connectionStatus={connectionStatus}
+        onCopyInvite={copyRoomId}
+        copySuccess={copySuccess}
         onPlayerAction={playerAction}
         onLeaveRoom={leaveRoom}
         onCloseRoom={closeRoom}
