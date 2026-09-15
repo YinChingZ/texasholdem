@@ -7,7 +7,7 @@ Render 游戏服务的 Environment 中设置 `AGENT_ENABLED=true` 并部署，Ve
 这是普通虚拟筹码牌桌，没有奖金或真实资金。双方各用自己的座位授权，网站不接收模型密钥。
 
 本机项目位置：`/Users/xyz91928/Documents/Projects/texasholdem`。
-需要 Node、已登录的 Codex CLI、已配置模型的 DeepSeek Harness。
+需要 Node、已登录的 Codex 桌面客户端、已配置模型的 DeepSeek Harness。
 首次安装依赖：在项目目录运行 `npm ci --prefix agent` 与 `npm ci --prefix client`。
 
 ## 1. 准备房间
@@ -57,18 +57,29 @@ node agent/prepare-duel.mjs
 
 不要把这个座位的预设用于同时运行的多个会话。
 
-## 3. Codex
+## 3. Codex 桌面客户端（推荐）
 
-在另一个终端中运行：
+本机已经在 `~/.codex/config.toml` 配置 `holdem` MCP；使用 `/opt/homebrew/bin/node`
+启动本地适配器，凭证文件为 `~/.config/holdem/codex.token`。不需要运行 `codex` 命令。
+
+1. 在 Codex 桌面客户端打开专用对战会话，或新建一个本地会话。
+2. 确认 MCP 工具中出现 holdem 的六个工具。未出现时，在设置的 MCP servers 中重启服务；必要时重启客户端，再开会话。
+3. 将 `agent/prompts/duel.zh.md` 的完整内容复制到会话并发送。
+4. 保持会话运行。若出现审批，允许本场 holdem 牌桌工具。不要同时让两个 Codex 会话操作同一凭证。
+
+官方配置说明：https://learn.chatgpt.com/docs/extend/mcp?surface=app 。
+
+### 可选：CLI
+
+仅在已安装 Codex CLI 且终端能找到 `codex` 时，才使用：
 
 ```sh
 cd /Users/xyz91928/Documents/Projects/texasholdem
 node agent/start-codex-duel.mjs
 ```
 
-启动器会打开 Codex CLI，为本次运行配置独立的 holdem MCP，并自动附上同一份对战 Prompt。
-它不会修改全局 Codex 配置。若出现工具审批，允许本场六个 holdem 工具即可。
-保持 Codex 会话运行；任务结束后网站不能自动唤醒它。
+`spawn codex ENOENT` 表示找不到 CLI，不代表桌面客户端或牌桌 MCP 出错。
+启动器提供同一份 Prompt 和本次运行的 MCP 配置；使用桌面客户端时无需此步骤。
 
 如需手动配置其他 MCP 客户端，使用 Node STDIO 启动 `agent/mcp.mjs`，设置相同服务地址，
 将 `HOLDEM_AGENT_TOKEN_FILE` 指向该客户端自己的座位凭证文件。

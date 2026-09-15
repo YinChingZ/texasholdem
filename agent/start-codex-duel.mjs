@@ -12,4 +12,10 @@ const args = [
   readFileSync(new URL('prompts/duel.zh.md', import.meta.url), 'utf8'),
 ];
 const child = spawn(process.env.CODEX_BIN || 'codex', args, { stdio: 'inherit' });
+child.on('error', error => {
+  console.error(error.code === 'ENOENT'
+    ? '找不到 Codex CLI。推荐在 Codex 桌面客户端新建会话并使用 holdem MCP，详见 docs/CODEX_DEEPSEEK_DUEL.md。若确实使用 CLI，请安装后重试或设置 CODEX_BIN。'
+    : `无法启动 Codex CLI：${error.code || error.message}`);
+  process.exitCode = 1;
+});
 child.on('exit', code => { process.exitCode = code ?? 1; });
