@@ -1,3 +1,4 @@
+import AgentPanel from '../components/game/AgentPanel'
 import { useCallback, useState } from 'react'
 import SessionControls from '../components/game/SessionControls'
 import GameControls from '../components/game/GameControls'
@@ -98,6 +99,7 @@ export default function GameScreen({
             privateCards={privateCards}
             livePlayer={player}
           />
+          <AgentPanel key={room.id} gameState={gameState} onCommand={onCommand} />
           <SessionControls gameState={gameState} onCommand={onCommand} onShowLastResult={onShowLastResult} />
           <div className={styles.actionArea}><ActionDock player={player} gameState={gameState} isSpectator={isSpectator} onAction={onPlayerAction} /></div>
         </div>

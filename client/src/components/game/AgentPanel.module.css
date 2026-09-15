@@ -1,0 +1,7 @@
+.bar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .6rem 1rem; color: var(--text-secondary); }
+.bar > span { margin-right: auto; }
+.panel { display: grid; gap: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
+.panel p { margin: 0; }
+.panel textarea { display: block; width: 100%; box-sizing: border-box; min-height: 5rem; margin-top: .5rem; padding: .7rem; font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .5rem; }
+.panel pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+.panel summary { cursor: pointer; }

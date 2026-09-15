@@ -1,3 +1,4 @@
+import AgentPanel from '../components/game/AgentPanel'
 import { useCallback, useState } from 'react'
 import { Check, Copy, Crown, DoorOpen, Eye, Lock, MessageCircle, Settings, SlidersHorizontal, Users } from 'lucide-react'
 import PlayerAvatar from '../components/ui/PlayerAvatar'
@@ -40,7 +41,7 @@ function HostSettings({ showAllHands, initialChips, chipsValid, onShowAllHandsCh
   )
 }
 
-export default function LobbyScreen({ room, gameState, currentUserId, isRoomCreator, isSpectator, showAllHands, initialChips, copySuccess, onCopyRoomId, onShowAllHandsChange, onInitialChipsChange, onSaveChips, onStartGame, onLeaveRoom, onCloseRoom, onSwitchToPlayer, onSwitchToSpectator }) {
+export default function LobbyScreen({ room, gameState, currentUserId, isRoomCreator, isSpectator, showAllHands, initialChips, copySuccess, onCopyRoomId, onShowAllHandsChange, onInitialChipsChange, onSaveChips, onStartGame, onLeaveRoom, onCloseRoom, onSwitchToPlayer, onSwitchToSpectator, onCommand }) {
   const players = gameState.players ?? []
   const spectators = Object.values(gameState.spectators ?? {})
   const [panel, setPanel] = useState(null)
@@ -69,13 +70,19 @@ export default function LobbyScreen({ room, gameState, currentUserId, isRoomCrea
         <header><h2 id="participant-title">玩家 <span>{players.length}/8</span></h2></header>
         <ul className={styles.playerList}>{players.map(player => <li key={player.id}>
           <PlayerAvatar name={player.nickname} className={styles.avatar} />
-          <strong title={player.nickname}>{player.nickname}{player.connected === false && <small>离线</small>}{player.id === currentUserId && <small>你</small>}</strong>
+          <strong title={player.nickname}>{player.nickname}{player.connected === false && <small>离线</small>}{player.id === currentUserId && <small>你</small>}{player.agentControlled && <small>Agent 托管</small>}</strong>
           {player.id === gameState.creator && <span className={styles.owner}><Crown size={14} />房主</span>}
         </li>)}</ul>
         {players.length < 2 && <p className={styles.emptySeat}>等待牌友加入</p>}
         {spectators.length > 0 && <div className={styles.spectators}><Eye size={16} /><span>旁观</span>{spectators.map(player => <span key={player.id}>{player.nickname}</span>)}</div>}
       </section>
       <div className={styles.settingsSummary}><span>初始筹码 <strong>{formatChips(gameState.settings?.initialChips ?? initialChips)}</strong></span><span>{showAllHands ? '结算全部亮牌' : '仅赢家亮牌'}</span>{isRoomCreator && <Button variant="ghost" onClick={() => setPanel('settings')}><Settings size={16} />设置</Button>}</div>
+      <AgentPanel key={room.id} gameState={gameState} onCommand={onCommand} />
+      {isRoomCreator && <label className={styles.settingsSummary}>每步思考时间
+        <select aria-label="每步思考时间" value={gameState.settings?.turnMs ?? 45000} onChange={event => onCommand('updateRoomSettings', { settings: { turnMs: Number(event.target.value) } })}>
+          <option value={45000}>标准 · 45 秒</option><option value={120000}>慢速 · 120 秒</option>
+        </select>
+      </label>}
       <section className={styles.actions} aria-label="大厅操作">
         <div className={styles.startArea}><Button disabled={gameState.allowedActions ? !gameState.allowedActions.start : !isRoomCreator || players.length < 2} onClick={onStartGame}>{isRoomCreator ? '开始游戏' : '等待房主开始'}</Button>{players.length < 2 && <span>至少需要 2 位玩家</span>}</div>
         {(isSpectator || !isRoomCreator) && (isSpectator ? <Button variant="ghost" onClick={onSwitchToPlayer}><Users size={16} />加入对局</Button> : <Button variant="ghost" onClick={() => requestConfirmation('spectate')}><Eye size={16} />旁观</Button>)}

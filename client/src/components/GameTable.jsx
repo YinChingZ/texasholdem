@@ -219,6 +219,7 @@ export default function GameTable() {
         onCloseRoom={closeRoom}
         onSwitchToPlayer={switchToPlayer}
         onSwitchToSpectator={switchToSpectator}
+        onCommand={(event, payload = {}) => socket.emit(event, { roomId: room.id, ...payload })}
       />
     )
   }

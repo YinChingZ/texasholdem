@@ -4,7 +4,7 @@ const { Game, Player } = require('./game');
 
 const PROTOCOL_VERSION = 2;
 const BETTING = new Set(['PREFLOP', 'FLOP', 'TURN', 'RIVER']);
-const DEFAULTS = { turnMs: 45000, nextHandMs: 8000, runoutMs: 600, hostGraceMs: 30000, probeMs: 3000, idleMs: 1800000 };
+const DEFAULTS = { turnMs: 45000, nextHandMs: 8000, runoutMs: 600, hostGraceMs: 30000, probeMs: 3000, idleMs: 1800000, agentEnabled: false };
 const failure = (code, message) => Object.assign(new Error(message), { code });
 
 // Every room mutation is synchronous. Async transport probes only enqueue a new,
@@ -20,6 +20,8 @@ class RoomService {
     this.rooms = new Map();
     this.bindings = new Map();
     this.entryRequests = new Map();
+    this.agentGrants = new Map();
+    this.agentListeners = new Set();
   }
 
   timer(room, key, delay, callback) {
@@ -57,14 +59,14 @@ class RoomService {
 
   inHand(room) { return BETTING.has(room.game.gameState); }
   members(room) { return [...room.members.values()]; }
-  eligible(room) { return this.members(room).filter(m => m.role === 'player' && !m.departed && (m.socketId || m.control === 'bot') && !m.sittingOut && m.player.chips > 0); }
+  eligible(room) { return this.members(room).filter(m => m.role === 'player' && !m.departed && this.online(m) && !m.sittingOut && m.player.chips > 0); }
 
   addMember(room, socketId, nickname, role) {
     if (typeof nickname !== 'string' || !nickname.trim()) throw failure('INVALID_NAME', '昵称不能为空');
     const playerId = this.id();
     const member = { id: playerId, token: this.id(), nickname: nickname.trim().slice(0, 32), role, control: 'human',
       player: new Player(playerId, nickname.trim().slice(0, 32), room.settings.initialChips), socketId: null,
-      generation: 0, sittingOut: false, departed: false, pendingSeat: false, enteredSession: false,
+      controlVersion: 0, agent: null, generation: 0, sittingOut: false, departed: false, pendingSeat: false, enteredSession: false,
       timeouts: 0, requests: new Map(), joinedAt: room.memberSequence++ };
     room.members.set(member.id, member);
     if (role === 'player') room.game.addPlayer(member.player);
@@ -139,7 +141,7 @@ class RoomService {
     const room = this.rooms.get(binding.roomId), member = room?.members.get(binding.playerId);
     if (!member || member.socketId !== socketId || member.generation !== binding.generation) return;
     member.socketId = null;
-    member.sittingOut = true;
+    if (!this.agentActive(member)) member.sittingOut = true;
     if (room.training) { room.paused = true; this.cancelHand(room); this.checkIdle(room); this.reconcile(room); this.publish(room); return; }
     if (room.creator === member.id) this.timer(room, 'host', this.config.hostGraceMs, () => {
       if (!room.members.get(room.creator)?.socketId) this.electHost(room);
@@ -150,7 +152,7 @@ class RoomService {
   }
 
   checkIdle(room) {
-    if (!this.members(room).some(m => m.socketId)) {
+    if (!this.members(room).some(m => m.control !== 'bot' && this.online(m))) {
       if (!room.timers.has('idle')) this.timer(room, 'idle', this.config.idleMs, () => this.close(room));
     } else this.cancel(room, 'idle');
   }
@@ -195,7 +197,7 @@ class RoomService {
           if (typeof args.nickname !== 'string' || !args.nickname.trim()) throw failure('INVALID_NAME', '昵称不能为空');
           let roomId; do { roomId = this.id().replaceAll('-', '').slice(0, 6); } while (this.rooms.has(roomId));
           room = { id: roomId, members: new Map(), memberSequence: 0, game: new Game([], 5, 10, this.deckRandom), creator: null,
-            settings: { initialChips: 1000, showAllHands: true }, sessionId: this.id(), handId: null,
+            settings: { initialChips: 1000, showAllHands: true, turnMs: this.config.turnMs }, sessionId: this.id(), handId: null,
             turnId: null, revision: 0, phase: 'LOBBY', started: false, paused: false, endRequested: false,
             pauseReason: null, lastResult: null, leaderboard: null, timers: new Map() };
           this.rooms.set(roomId, room);
@@ -229,6 +231,7 @@ class RoomService {
         if (terminal) return { ok: true, commandResult: terminal.response };
       }
       const { room, member } = this.authorize(socketId, args.roomId);
+      if (args.generation !== member.generation) throw failure('SESSION_STALE', '连接已被替换，请恢复会话');
       const cached = member.requests.get(args.requestId);
       if (cached) {
         if (cached.fingerprint !== fingerprint) throw failure('REQUEST_CONFLICT', '请求标识已用于其他操作');
@@ -239,7 +242,8 @@ class RoomService {
       if (command === 'syncSession') response = { ok: true, token: member.token };
       else if (command === 'commandStatus') response = { ok: true, commandResult: member.requests.get(args.commandRequestId)?.response || null };
       else response = this.mutate(room, member, command, args) || { ok: true };
-      this.remember(member.requests, args.requestId, { fingerprint, response });
+      const { agentToken: _secret, ...receiptResponse } = response;
+      this.remember(member.requests, args.requestId, { fingerprint, response: receiptResponse });
       if (response.left || response.closed) {
         let receipts = this.entryRequests.get(socketId);
         if (!receipts) { receipts = new Map(); this.entryRequests.set(socketId, receipts); }
@@ -254,6 +258,7 @@ class RoomService {
   }
 
   mutate(room, member, command, args) {
+    if (['createAgentGrant', 'reclaimControl'].includes(command)) return this.agentBrowserCommand(room, member, command);
     if (room.training) { const response = this.trainingCommand(room, member, command, args); if (response) return response; }
     switch (command) {
       case 'startGame':
@@ -265,9 +270,11 @@ class RoomService {
         this.startHand(room);
         break;
       case 'playerAction':
+        if (member.agent?.connected) throw failure('AGENT_CONTROLLED', '请先接回操作');
+        if (member.controlVersion > 0 && args.controlVersion !== member.controlVersion) throw failure('CONTROL_LOST', '操作权已变化，请同步牌桌');
         if (args.handId !== room.handId || args.turnId !== room.turnId || !room.turnId) throw failure('STALE_TURN', '行动已过期，请查看当前牌桌');
-        if (!['check', 'call', 'fold', 'raise', 'bet'].includes(args.action)) throw failure('INVALID_ACTION', '无效的行动');
-        { this.executeAction(room, member.id, args.action, args.betAmount); member.timeouts = 0; }
+        if (!['check', 'call', 'fold', 'raise', 'bet', 'raise_to', 'all_in'].includes(args.action)) throw failure('INVALID_ACTION', '无效的行动');
+        { const action = this.normalizeAction(room, member, args.action, args.betAmount); this.executeAction(room, member.id, action.action, action.amount); member.timeouts = 0; }
         break;
       case 'pauseGame':
         this.host(room, member); room.paused = true;
@@ -313,10 +320,11 @@ class RoomService {
         this.host(room, member);
         if (this.inHand(room)) throw failure('HAND_RUNNING', '请在手间释放座位');
         const target = room.members.get(args.playerId);
-        if (!target || target.socketId || target.role !== 'player') throw failure('INVALID_PLAYER', '只能释放离线玩家座位');
+        if (!target || this.online(target) || target.role !== 'player') throw failure('INVALID_PLAYER', '只能释放离线玩家座位');
         this.unseat(room, target); break;
       }
       case 'leaveRoom': {
+        this.revokeAgent(room, member, 'left');
         member.departed = true; member.pendingSeat = false; member.sittingOut = true;
         this.bindings.delete(member.socketId); member.socketId = null;
         const beforeActor = room.game.activePlayers[room.game.currentPlayerTurn]?.id;
@@ -334,8 +342,10 @@ class RoomService {
       }
       case 'updateRoomSettings':
         this.host(room, member);
-        if (typeof args.settings?.showAllHands !== 'boolean') throw failure('INVALID_SETTINGS', '设置无效');
-        room.settings.showAllHands = args.settings.showAllHands;
+        if (!args.settings || !Object.keys(args.settings).length || Object.keys(args.settings).some(k => !['showAllHands', 'turnMs'].includes(k))) throw failure('INVALID_SETTINGS', '设置无效');
+        if ('showAllHands' in args.settings && typeof args.settings.showAllHands !== 'boolean') throw failure('INVALID_SETTINGS', '设置无效');
+        if ('turnMs' in args.settings && (room.started || ![45000, 120000].includes(args.settings.turnMs))) throw failure('INVALID_SETTINGS', '行动时间仅能在开局前选择 45 或 120 秒');
+        Object.assign(room.settings, args.settings);
         break;
       case 'updateInitialChips':
         this.host(room, member);
@@ -357,6 +367,7 @@ class RoomService {
   }
 
   unseat(room, member) {
+    this.revokeAgent(room, member, 'unseated');
     room.game.removePlayer(member.id);
     member.role = 'spectator'; member.sittingOut = true; member.pendingSeat = false;
   }
@@ -380,14 +391,23 @@ class RoomService {
     if (eligible.length < 2) return;
     this.cancelHand(room);
     room.handId = this.id();
+    room.publicHistory = []; room.boardCount = 0;
     room.phase = 'BETTING'; room.pauseReason = null;
     eligible.forEach(m => { m.enteredSession = true; });
     const result = room.game.startGame(eligible.map(m => m.id));
+    if (!room.training) room.publicHistory = room.game.postedBlinds.map(event => ({ ...event }));
     if (room.training) this.trainingDealt(room);
     this.advance(room, result);
   }
 
   advance(room, result) {
+    if (!room.training) {
+      const board = result?.handResult ? result.communityCards : room.game.communityCards;
+      if (board.length > (room.boardCount || 0)) {
+        (room.publicHistory ||= []).push({ type: 'board', cards: board.map(c => ({ suit: c.suit, rank: c.rank })) });
+        room.boardCount = board.length;
+      }
+    }
     this.cancel(room, 'turn'); room.turnId = null; room.turnDeadline = null;
     if (room.training) {
       this.trainingAdvance(room, result);
@@ -421,11 +441,12 @@ class RoomService {
     const actor = room.game.activePlayers[room.game.currentPlayerTurn];
     if (!actor || actor.status !== 'in-game') throw failure('NO_ACTOR', '下注阶段缺少合法行动者');
     if (room.turnId && room.timers.has('turn')) return;
-    room.phase = 'BETTING'; room.turnId = this.id(); room.turnDeadline = this.clock.now() + this.config.turnMs;
+    room.phase = 'BETTING'; room.turnId = this.id(); room.turnDeadline = this.clock.now() + room.settings.turnMs;
     const handId = room.handId, turnId = room.turnId;
-    this.timer(room, 'turn', this.config.turnMs, () => {
+    this.timer(room, 'turn', room.settings.turnMs, () => {
       if (room.handId !== handId || room.turnId !== turnId) return;
       const action = actor.currentBet >= room.game.currentBet ? 'check' : 'fold';
+      this.recordPublicAction(room, actor.id, action, 0);
       const result = room.game.playerAction(actor.id, action);
       const member = room.members.get(actor.id);
       if (member) { member.timeouts++; if (member.timeouts >= 2) member.sittingOut = true; }
@@ -461,12 +482,15 @@ class RoomService {
   }
 
   finish(room) {
+    this.members(room).forEach(m => this.revokeAgent(room, m, 'ended'));
     if (room.training) room.training.report = Training.report(room, this.clock.now());
     this.cancelHand(room); room.game.finishSession(); room.phase = 'ENDED'; room.pauseReason = null;
     room.leaderboard = this.members(room).filter(m => m.enteredSession).map(m => ({ id: m.id, nickname: m.nickname, chips: m.player.chips })).sort((a, b) => b.chips - a.chips);
   }
 
   reset(room) {
+    this.members(room).forEach(m => this.revokeAgent(room, m, 'reset'));
+    room.publicHistory = []; room.boardCount = 0;
     this.cancelHand(room);
     room.sessionId = this.id(); room.handId = null; room.lastResult = null; room.leaderboard = null;
     room.started = false; room.paused = false; room.endRequested = false; room.pauseReason = null; room.phase = 'LOBBY';
@@ -479,6 +503,7 @@ class RoomService {
   }
 
   close(room) {
+    this.members(room).forEach(m => this.revokeAgent(room, m, 'closed'));
     for (const key of [...room.timers.keys()]) this.cancel(room, key);
     this.members(room).forEach(m => {
       if (m.socketId) { this.bindings.delete(m.socketId); this.transport.emit(m.socketId, 'roomClosed', { roomId: room.id, message: '房间已关闭' }); }
@@ -499,15 +524,16 @@ class RoomService {
     const state = room.game._getGameState();
     const inHand = this.inHand(room);
     const players = inHand || room.training ? state.players : this.members(room).filter(m => m.role === 'player' && !m.departed).map(m => ({ id: m.id, nickname: m.nickname, chips: m.player.chips, status: m.player.chips ? 'in-game' : 'out-of-chips', currentBet: 0 }));
-    const publicMembers = this.members(room).filter(m => !m.departed).map(m => ({ id: m.id, nickname: m.nickname, role: m.role, connected: m.control === 'bot' || !!m.socketId, sittingOut: m.sittingOut, pendingSeat: m.pendingSeat, chips: m.player.chips }));
+    const publicMembers = this.members(room).filter(m => !m.departed).map(m => ({ id: m.id, nickname: m.nickname, role: m.role, agentControlled: !!m.agent?.connected, connected: this.online(m), sittingOut: m.sittingOut, pendingSeat: m.pendingSeat, chips: m.player.chips }));
     const isHost = room.creator === member.id;
     return { ...state, mode: room.mode || 'multiplayer', ...(room.training ? { training: { completed: room.training.hands.length, target: 20, coach: this.coachingFor(room), pendingPrompt: room.training.pendingPrompt, notes: room.training.notes, fast: room.training.fast, history: [...room.training.hands, ...(room.training.current && !room.training.hands.includes(room.training.current) ? [room.training.current] : [])].map(h => ({ number: h.number, events: h.events.filter(e => ['blind', 'action', 'board'].includes(e.type)) })) } } : {}), protocolVersion: PROTOCOL_VERSION, roomId: room.id, sessionId: room.sessionId, handId: room.handId,
       revision: room.revision, serverNow: this.clock.now(), phase: room.phase, creator: room.creator, settings: { ...room.settings },
-      players: players.map(p => { const m = room.members.get(p.id); return { ...p, connected: m?.control === 'bot' || !!m?.socketId, sittingOut: !!m?.sittingOut }; }),
+      players: players.map(p => { const m = room.members.get(p.id); return { ...p, agentControlled: !!m?.agent?.connected, connected: this.online(m), sittingOut: !!m?.sittingOut }; }),
       members: publicMembers, spectators: Object.fromEntries(publicMembers.filter(m => m.role === 'spectator').map(m => [m.id, m])),
       turnId: room.turnId, turnDeadline: room.turnDeadline, nextHandAt: room.nextHandAt, paused: room.paused,
       pauseReason: room.pauseReason, endRequested: room.endRequested, lastResult: this.resultFor(room), leaderboard: room.leaderboard,
-      self: { playerId: member.id, generation: member.generation, role: member.role, sittingOut: member.sittingOut, pendingSeat: member.pendingSeat },
+      agentEnabled: this.config.agentEnabled && !room.training, publicHistory: room.publicHistory || [], legalActions: room.phase === 'BETTING' ? room.game.legalActions(member.id) : null,
+      self: { controlVersion: member.controlVersion || 0, agent: this.agentState(member), playerId: member.id, generation: member.generation, role: member.role, sittingOut: member.sittingOut, pendingSeat: member.pendingSeat },
       privateCards: inHand && room.game.activePlayers.includes(member.player) ? member.player.hand.map(c => ({ suit: c.suit, rank: c.rank })) : [],
       allowedActions: {
         start: isHost && !room.started && this.eligible(room).length >= 2,
@@ -532,10 +558,11 @@ class RoomService {
       return;
     }
     room.revision++;
+    for (const listener of [...this.agentListeners]) listener();
     for (const member of this.members(room)) if (member.socketId) this.transport.emit(member.socketId, 'roomSnapshot', this.snapshot(room, member));
   }
 
-  dispose() { for (const room of this.rooms.values()) for (const key of [...room.timers.keys()]) this.cancel(room, key); }
+  dispose() { this.config.agentEnabled = false; for (const room of [...this.rooms.values()]) this.close(room); this.bindings.clear(); this.entryRequests.clear(); }
 }
-Object.assign(RoomService.prototype, require('./training-service'));
+Object.assign(RoomService.prototype, require('./training-service'), require('./agent-service'));
 module.exports = { RoomService, PROTOCOL_VERSION, DEFAULTS };

@@ -8,7 +8,7 @@ const allowedOrigins = [
   'https://texasholdem-beige.vercel.app', 'https://texasholdem.top', 'https://www.texasholdem.top',
   'http://localhost:5173',
 ];
-const commands = ['createTraining', 'saveObservation', 'dismissObservation', 'fastForward', 'getTrainingReport', 'createRoom', 'joinRoom', 'startGame', 'playerAction', 'prepareNextHand', 'pauseGame',
+const commands = ['createAgentGrant', 'reclaimControl', 'createTraining', 'saveObservation', 'dismissObservation', 'fastForward', 'getTrainingReport', 'createRoom', 'joinRoom', 'startGame', 'playerAction', 'prepareNextHand', 'pauseGame',
   'resumeGame', 'endGame', 'resetGame', 'closeRoom', 'leaveRoom', 'switchToPlayer', 'switchToSpectator',
   'returnToTable', 'releaseSeat', 'updateRoomSettings', 'updateInitialChips', 'sendMessage', 'syncSession', 'commandStatus'];
 
@@ -28,6 +28,7 @@ function createServer({ config = {}, log = (event, fields) => console.info(JSON.
     }),
   };
   const service = new RoomService({ transport, config, log });
+  app.use('/api/agent/v1', require('./agent-http').agentRouter(service));
   io.on('connection', socket => {
     for (const command of commands) socket.on(command, (args, ack) => {
       const response = service.dispatch(socket.id, command, args || {});
@@ -54,10 +55,12 @@ if (require.main === module) {
     return process.env[name] != null && Number.isFinite(value) && value >= 0 ? value : fallback;
   };
   const instance = createServer({ config: {
+    agentEnabled: process.env.AGENT_ENABLED === 'true',
     turnMs: envMs('TURN_TIMEOUT_MS', 45000), nextHandMs: envMs('NEXT_HAND_MS', 8000),
     runoutMs: envMs('PACING_MS', 600), hostGraceMs: envMs('HOST_GRACE_MS', 30000),
     probeMs: envMs('SESSION_PROBE_MS', 3000), idleMs: envMs('ROOM_IDLE_MS', 1800000),
   } });
+  process.on('SIGHUP', () => instance.service.setAgentEnabled(false));
   instance.server.listen(process.env.PORT || 3000, () => console.info(`Server listening on ${process.env.PORT || 3000}`));
 }
 module.exports = { createServer };

@@ -22,6 +22,8 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
     if (!actionState.isPlayerTurn) setRaiseOpen(false)
   }, [actionState.isPlayerTurn, actionState.minRaiseAmount, actionState.maxRaiseAmount])
 
+  if (gameState?.self?.agent?.status === 'controlled') return <div className={styles.status}><strong>Agent 正在代打</strong><span>接回操作后可自行出牌。</span></div>
+
   if (isSpectator) {
     return <div className={styles.status}><strong>旁观模式</strong></div>
   }
@@ -71,6 +73,7 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
         </button>
       </div>
 
+      {gameState.legalActions?.all_in && !actionState.canRaise && !actionState.isAllInCall && <button className={styles.actionButton} onClick={() => act('all_in')}>全押 {formatChips(actionState.playerChips)}</button>}
       {raiseOpen && actionState.canRaise && (
         <div className={styles.raisePanel}>
           <div className={styles.quickRaises}>
@@ -93,7 +96,7 @@ export default function ActionDock({ player, gameState, isSpectator, onAction })
             />
             <small><span>{formatChips(actionState.minRaiseAmount)}</span><span>{formatChips(actionState.maxRaiseAmount)}</span></small>
           </label>
-          <button className={styles.confirmRaise} type="button" disabled={!validRaise} onClick={() => act('raise', raiseAmount)}>
+          <button className={styles.confirmRaise} type="button" disabled={!validRaise} onClick={() => act(gameState.legalActions ? 'raise_to' : 'raise', gameState.legalActions ? actionState.currentBet + raiseAmount : raiseAmount)}>
             确认加注 {formatChips(raiseAmount)}
           </button>
         </div>

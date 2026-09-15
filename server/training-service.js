@@ -77,7 +77,9 @@ module.exports = {
   executeAction(room,id,action,amount=0) {
     const state=room.training?T.before(room.game,id):null;
     const coachInput=state&&id===room.creator?this.coachInput(room,state):null;
+    const publicEvent = this.publicAction(room,id,action,amount);
     const result=room.game.playerAction(id,action,amount);
+    if(publicEvent) (room.publicHistory ||= []).push(publicEvent);
     if(state) {
       const invested=['check','fold'].includes(action)?0:Math.min(state.chips,state.call+(['raise','bet'].includes(action)?room.game.constructor._sanitizeAmount(amount):0));
       room.training.current.events.push({type:'action',before:state,action,invested});

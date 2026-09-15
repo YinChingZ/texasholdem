@@ -146,6 +146,10 @@ docker run -p 3000:3000 texasholdem-server
 
 首页新增“观察练习”：与三名风格隐藏的电脑进行 20 手练习，记录观察并在结束后查看证据复盘。支持即时暂停、断线恢复及当前浏览器报告保存；详见 [单人观察训练说明](docs/OBSERVATION_TRAINING.md)。
 
+## 自带 Agent 托管
+
+普通房间支持将自己的座位授权给 Codex 或其他 Agent，网页继续看牌并可随时接回操作。提供 HTTP API、STDIO MCP 和 JavaScript / Python 示例；服务端默认关闭，使用 `AGENT_ENABLED=true` 启用。详见 [接入说明](docs/AGENT_INTERFACE.md) 和 [验收记录](docs/AGENT_ACCEPTANCE.md)。
+
 ## 💡 未来可以探索的方向
 
 - **用户认证与数据持久化**: 集成数据库（如 MongoDB 或 PostgreSQL），实现用户注册、登录和游戏数据的持久化。

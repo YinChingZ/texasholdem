@@ -21,7 +21,7 @@ export default function PlayerSeat({ placement, players, gameState, actionEvent,
         ? <div className={styles.coveredHand} aria-hidden="true"><i /><i /></div>
         : <PlayerAvatar name={player.nickname} className={styles.avatar} />}
       <div className={styles.info}>
-        <div className={styles.identity}><strong title={player.nickname}>{player.nickname}{isHero ? ' · 你' : ''}</strong>{isOffline && <WifiOff size={12} aria-label="已离线" />}</div>
+        <div className={styles.identity}><strong title={player.nickname}>{player.nickname}{isHero ? ' · 你' : ''}{player.agentControlled ? ' · Agent' : ''}</strong>{isOffline && <WifiOff size={12} aria-label="已离线" />}</div>
         <strong className={styles.stack} data-testid="player-stack" aria-label={`${player.nickname} 剩余筹码`}>{formatChips(player.chips)}</strong>
         <span className={styles.state} data-testid="player-status">
           {actionEvent && !award ? <ActionBadge event={actionEvent} /> : <>{StateIcon && <StateIcon size={11} aria-hidden="true" />}{stateLabel}</>}

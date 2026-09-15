@@ -78,6 +78,19 @@ class Game {
         this._lastButtonSeat = -1; // 庄家离桌时的回退定位
     }
 
+    legalActions(playerId) {
+        const p = this.activePlayers[this.currentPlayerTurn];
+        if (!p || p.id !== playerId || p.status !== 'in-game' || !['PREFLOP', 'FLOP', 'TURN', 'RIVER'].includes(this.gameState)) return null;
+        const call = Math.max(0, this.currentBet - p.currentBet);
+        const raiseRight = p.actedAtBet == null || p.actedAtBet === 0 || this.currentBet - p.actedAtBet >= this.minRaise;
+        const max = p.currentBet + p.chips;
+        const min = this.currentBet < this.bigBlind ? this.bigBlind : this.currentBet + this.minRaise;
+        const canRaise = raiseRight && p.chips > call;
+        return { fold: true, check: call === 0, call: call > 0 && p.chips > 0,
+            callAmount: Math.min(call, p.chips), raise_to: canRaise && max >= min,
+            minRaiseTo: min, maxRaiseTo: max, all_in: p.chips > 0 && (p.chips <= call || canRaise) };
+    }
+
     // 校验并规整来自客户端的下注金额，杜绝 NaN / 负数 / 非整数污染牌局状态
     static _sanitizeAmount(amount) {
         const n = Number(amount);
@@ -139,6 +152,7 @@ class Game {
         }
 
         this.gameState = 'PREFLOP';
+        this.postedBlinds = [];
         this.deck = new Deck(this.random);
         this.mainPot = 0;
         this.sidePots = [];
@@ -150,7 +164,7 @@ class Game {
             p.status = 'in-game';
             p.currentBet = 0;           // 当前回合的下注
             p.totalBetThisHand = 0;     // 整手牌的累计下注
-            p.hasActed = false;
+            p.hasActed = false; p.actedAtBet = null;
             p.winnings = 0;
             p.leftTable = false;
         });
@@ -192,6 +206,7 @@ class Game {
         const blindAmount = Math.min(player.chips, amount);
         player.chips -= blindAmount;
         player.currentBet = blindAmount;        // 当前回合下注
+        this.postedBlinds.push({ type: 'blind', playerId: player.id, amount: blindAmount, street: 'PREFLOP' });
         player.totalBetThisHand = blindAmount;  // 整手牌累计下注
         this.mainPot += blindAmount;
 
@@ -210,6 +225,9 @@ class Game {
         // 标记玩家已行动
         if (!player || player.status !== 'in-game') throw new Error('当前玩家不可行动');
 
+        const legal = this.legalActions(playerId);
+        if (action === 'check' && !legal.check) throw new Error('无法过牌');
+        if (['raise', 'bet'].includes(action) && !legal.all_in) throw new Error('加注权尚未重新开放');
         switch (action) {
             case 'fold':
                 player.status = 'folded';
@@ -234,6 +252,7 @@ class Game {
                 throw new Error(`无效操作: ${action}`);        }
 
         player.hasActed = true;
+        player.actedAtBet = this.currentBet;
         const result = this._advanceTurn();
 
         if (result && (result.handResult || result.runout)) {
@@ -289,7 +308,7 @@ class Game {
         }
 
         // 最小加注增量 = 本轮上一次“完整加注”的大小（首次加注为大盲）
-        const minPureRaiseAmount = this.minRaise;
+        const minPureRaiseAmount = this.currentBet < this.bigBlind ? this.bigBlind - this.currentBet : this.minRaise;
 
         // 玩家实际要投入的总金额 = 跟注金额 + 加注金额
         const totalBetAmount = amountToCall + raiseAmount;
@@ -318,11 +337,11 @@ class Game {
 
         if (raiseIncrement >= minPureRaiseAmount) {
             // 完整加注：刷新最小加注增量并重新打开其他玩家的行动
-            this.minRaise = raiseIncrement;
+            this.minRaise = prevCurrentBet < this.bigBlind ? player.currentBet : raiseIncrement;
             this.lastRaiser = player.id;
             this.activePlayers.forEach(p => {
                 if (p.id !== player.id && p.status === 'in-game') {
-                    p.hasActed = false;
+                    p.hasActed = false; p.actedAtBet = null;
                 }
             });
         }
@@ -537,7 +556,7 @@ class Game {
 
         // 重置玩家的回合状态
         this.activePlayers.forEach(p => {
-            p.hasActed = false;
+            p.hasActed = false; p.actedAtBet = null;
             // 在新回合开始时，清零当前回合下注，为新回合做准备
             p.currentBet = 0;
             // 保持 totalBetThisHand，这是整手牌的累计下注
@@ -811,7 +830,7 @@ class Game {
             }
             p.currentBet = 0;
             p.totalBetThisHand = 0;
-            p.hasActed = false;
+            p.hasActed = false; p.actedAtBet = null;
             p.hand = [];
             p.winnings = 0;
         });
@@ -859,7 +878,7 @@ class Game {
             p.status = 'in-game';
             p.currentBet = 0;
             p.totalBetThisHand = 0;
-            p.hasActed = false;
+            p.hasActed = false; p.actedAtBet = null;
             p.winnings = 0;
             p.isAllIn = false; // 重置all-in状态
             p.leftTable = false;
@@ -875,6 +894,7 @@ class Game {
     // 开始新一手
     _startNewHand() {
         this.gameState = 'PREFLOP';
+        this.postedBlinds = [];
 
         // 确定位置：以稳定身份轮转庄家钮，再计算盲注位
         this._rotateButton();

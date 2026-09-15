@@ -195,7 +195,7 @@ export class SessionClient {
     if (event === 'joinRoom' && this.credential(payload.roomId)) { this.target = payload.roomId; this.tabStorage.setItem(TARGET, payload.roomId); return this.resume() }
     const epoch = this.epoch
     const args = { ...payload, protocolVersion: PROTOCOL_VERSION, requestId: this.uuid(),
-      generation: this.state.gameState?.self.generation, ...(event === 'playerAction' ? { handId: this.state.gameState?.handId, turnId: this.state.gameState?.turnId } : {}) }
+      generation: this.state.gameState?.self.generation, ...(event === 'playerAction' ? { controlVersion: this.state.gameState?.self.controlVersion, handId: this.state.gameState?.handId, turnId: this.state.gameState?.turnId } : {}) }
     if (entry) { this.entering = true; this.homeChosen = false }
     const response = await this.request(event, args)
     if (epoch !== this.epoch || !this.running) return null

@@ -23,7 +23,8 @@ function strength(hand, board) {
 function observation(game, id) {
   const p = game.activePlayers.find(p => p.id===id);
   return copy({ hand: p.hand, board: game.communityCards, street: game.gameState,
-    chips: p.chips, call: Math.max(0,game.currentBet-p.currentBet), minRaise: game.minRaise,
+    chips: p.chips, call: Math.max(0,game.currentBet-p.currentBet), minRaise: game.legalActions(id) ? game.legalActions(id).minRaiseTo - game.currentBet : game.minRaise,
+    canRaise: game.legalActions(id)?.all_in === true && p.chips > game.currentBet - p.currentBet,
     pot: game.mainPot + game.sidePots.reduce((n,p)=>n+p.amount,0),
     position: (game.activePlayers.indexOf(p)-game.dealerPosition+game.activePlayers.length)%game.activePlayers.length,
     opponents: game.activePlayers.filter(q=>q.id!==id && q.status!=='folded').map(q=>({chips:q.chips,currentBet:q.currentBet,status:q.status})) });
@@ -34,7 +35,7 @@ function decide(view, profile, random = Math.random) {
   const cost = view.call / Math.max(1, view.pot+view.call);
   const roll = random();
   if (view.call && power + p.call < p.threshold + cost && roll > p.call) return {action:'fold'};
-  if (view.chips > view.call && roll < p.aggression * (power > .65 ? 1.5 : .65)) {
+  if (view.canRaise !== false && view.chips > view.call && roll < p.aggression * (power > .65 ? 1.5 : .65)) {
     const effective = Math.min(view.chips, Math.max(...view.opponents.map(o=>o.chips+o.currentBet),view.minRaise));
     const amount = Math.min(view.chips-view.call, Math.max(view.minRaise, Math.floor(Math.min(effective,view.pot*p.size))));
     return {action:'raise',betAmount:amount};

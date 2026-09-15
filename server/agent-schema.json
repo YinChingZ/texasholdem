@@ -1,0 +1,667 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:holdem:agent:v1",
+  "definitions": {
+    "empty": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "wait": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "handId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turnId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "controlVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "action": {
+          "enum": [
+            "fold",
+            "check",
+            "call",
+            "raise_to",
+            "all_in"
+          ]
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "requestId",
+        "handId",
+        "turnId",
+        "controlVersion",
+        "action"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "action": {
+            "const": "raise_to"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "amount"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "amount"
+          ]
+        }
+      }
+    },
+    "card": {
+      "type": "object",
+      "properties": {
+        "suit": {
+          "enum": [
+            "Hearts",
+            "Diamonds",
+            "Clubs",
+            "Spades"
+          ]
+        },
+        "rank": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "suit",
+        "rank"
+      ],
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "roomId",
+        "sessionId",
+        "handId",
+        "turnId",
+        "revision",
+        "serverNow",
+        "phase",
+        "self",
+        "privateCards",
+        "communityCards",
+        "players",
+        "legalActions",
+        "history"
+      ],
+      "properties": {
+        "roomId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "street": {
+          "type": "string"
+        },
+        "handId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "turnId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "currentPlayerTurn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pauseReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serverNow": {
+          "type": "number"
+        },
+        "mainPot": {
+          "type": "number"
+        },
+        "currentBet": {
+          "type": "number"
+        },
+        "smallBlind": {
+          "type": "number"
+        },
+        "bigBlind": {
+          "type": "number"
+        },
+        "dealerPosition": {
+          "type": "number"
+        },
+        "smallBlindPosition": {
+          "type": "number"
+        },
+        "bigBlindPosition": {
+          "type": "number"
+        },
+        "turnDeadline": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "nextHandAt": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "apiVersion": {
+          "const": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "self": {
+          "type": "object",
+          "required": [
+            "playerId",
+            "controlVersion",
+            "sittingOut",
+            "role",
+            "agent"
+          ],
+          "properties": {
+            "playerId": {
+              "type": "string"
+            },
+            "controlVersion": {
+              "type": "integer"
+            },
+            "sittingOut": {
+              "type": "boolean"
+            },
+            "role": {
+              "const": "player"
+            },
+            "agent": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        },
+        "privateCards": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "properties": {
+              "suit": {
+                "enum": [
+                  "Hearts",
+                  "Diamonds",
+                  "Clubs",
+                  "Spades"
+                ]
+              },
+              "rank": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "suit",
+              "rank"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "communityCards": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "suit": {
+                "enum": [
+                  "Hearts",
+                  "Diamonds",
+                  "Clubs",
+                  "Spades"
+                ]
+              },
+              "rank": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "suit",
+              "rank"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "lastResult": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "sidePots": {
+          "type": "array"
+        },
+        "legalActions": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "fold": {
+              "type": "boolean"
+            },
+            "check": {
+              "type": "boolean"
+            },
+            "call": {
+              "type": "boolean"
+            },
+            "raise_to": {
+              "type": "boolean"
+            },
+            "all_in": {
+              "type": "boolean"
+            },
+            "callAmount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minRaiseTo": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxRaiseTo": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "handId": {
+          "type": "string"
+        },
+        "turnId": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "integer"
+        },
+        "executed": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "ok"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "serverNow": {
+          "type": "number"
+        },
+        "observation": {
+          "type": "object",
+          "required": [
+            "apiVersion",
+            "roomId",
+            "sessionId",
+            "handId",
+            "turnId",
+            "revision",
+            "serverNow",
+            "phase",
+            "self",
+            "privateCards",
+            "communityCards",
+            "players",
+            "legalActions",
+            "history"
+          ],
+          "properties": {
+            "roomId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "phase": {
+              "type": "string"
+            },
+            "street": {
+              "type": "string"
+            },
+            "handId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "currentPlayerTurn": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pauseReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "serverNow": {
+              "type": "number"
+            },
+            "mainPot": {
+              "type": "number"
+            },
+            "currentBet": {
+              "type": "number"
+            },
+            "smallBlind": {
+              "type": "number"
+            },
+            "bigBlind": {
+              "type": "number"
+            },
+            "dealerPosition": {
+              "type": "number"
+            },
+            "smallBlindPosition": {
+              "type": "number"
+            },
+            "bigBlindPosition": {
+              "type": "number"
+            },
+            "turnDeadline": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "nextHandAt": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "apiVersion": {
+              "const": 1
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "self": {
+              "type": "object",
+              "required": [
+                "playerId",
+                "controlVersion",
+                "sittingOut",
+                "role",
+                "agent"
+              ],
+              "properties": {
+                "playerId": {
+                  "type": "string"
+                },
+                "controlVersion": {
+                  "type": "integer"
+                },
+                "sittingOut": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "const": "player"
+                },
+                "agent": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
+            },
+            "privateCards": {
+              "type": "array",
+              "maxItems": 2,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "suit": {
+                    "enum": [
+                      "Hearts",
+                      "Diamonds",
+                      "Clubs",
+                      "Spades"
+                    ]
+                  },
+                  "rank": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "suit",
+                  "rank"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "communityCards": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "suit": {
+                    "enum": [
+                      "Hearts",
+                      "Diamonds",
+                      "Clubs",
+                      "Spades"
+                    ]
+                  },
+                  "rank": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "suit",
+                  "rank"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "players": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "lastResult": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "sidePots": {
+              "type": "array"
+            },
+            "legalActions": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "fold": {
+                  "type": "boolean"
+                },
+                "check": {
+                  "type": "boolean"
+                },
+                "call": {
+                  "type": "boolean"
+                },
+                "raise_to": {
+                  "type": "boolean"
+                },
+                "all_in": {
+                  "type": "boolean"
+                },
+                "callAmount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minRaiseTo": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxRaiseTo": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "receipt": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "requestId": {
+              "type": "string"
+            },
+            "handId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "integer"
+            },
+            "executed": {
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

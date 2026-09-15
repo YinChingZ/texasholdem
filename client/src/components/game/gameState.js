@@ -27,13 +27,14 @@ export function deriveActionState(player, gameState) {
   const currentBet = gameState?.currentBet ?? 0
   const bigBlind = gameState?.bigBlind ?? 10
   // 最小加注增量 = 本轮上一次完整加注的大小（服务端下发，回退为大盲），与后端校验一致
-  const minRaise = gameState?.minRaise ?? bigBlind
+  const minRaise = gameState?.legalActions ? gameState.legalActions.minRaiseTo - currentBet : gameState?.minRaise ?? bigBlind
   const playerChips = player?.chips ?? 0
   const playerCurrentBet = player?.currentBet ?? 0
   const callAmount = Math.max(0, currentBet - playerCurrentBet)
   const minRaiseAmount = Math.max(0, minRaise)
   const maxRaiseAmount = Math.max(0, playerChips - callAmount)
   const isPlayerTurn = Boolean(player && gameState?.currentPlayerTurn === player.id)
+  const legal = gameState?.legalActions
   const canCheck = isPlayerTurn && callAmount === 0
   const canCall = isPlayerTurn && callAmount > 0 && playerChips > 0
   const canRaise = isPlayerTurn && playerChips > callAmount && maxRaiseAmount >= minRaiseAmount
@@ -46,9 +47,9 @@ export function deriveActionState(player, gameState) {
     minRaiseAmount,
     maxRaiseAmount,
     isPlayerTurn,
-    canCheck,
-    canCall,
-    canRaise,
+    canCheck: legal ? legal.check : canCheck,
+    canCall: legal ? legal.call : canCall,
+    canRaise: legal ? legal.raise_to : canRaise,
     isAllInCall: canCall && callAmount >= playerChips,
   }
 }
