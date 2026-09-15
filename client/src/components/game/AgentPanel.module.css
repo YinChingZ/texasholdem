@@ -1,7 +1,15 @@
-.bar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .6rem 1rem; color: var(--text-secondary); }
+.bar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .6rem 1rem; color: var(--color-text-secondary); }
 .bar > span { margin-right: auto; }
-.panel { display: grid; gap: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
-.panel p { margin: 0; }
-.panel textarea { display: block; width: 100%; box-sizing: border-box; min-height: 5rem; margin-top: .5rem; padding: .7rem; font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .5rem; }
-.panel pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
-.panel summary { cursor: pointer; }
+.panel { display: grid; gap: 16px; min-width: 0; padding: 20px 18px 24px; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.panel > * { min-width: 0; }
+.panel p { margin: 0; color: var(--color-text-secondary); }
+.panel label { display: grid; gap: 8px; font-weight: 600; }
+.panel textarea { display: block; width: 100%; box-sizing: border-box; min-height: 6rem; padding: 12px; font-family: var(--font-mono, monospace); font-size: 12px; line-height: 1.6; color: var(--color-text); background: var(--color-control); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); resize: vertical; }
+.panel details { padding-top: 16px; border-top: 1px solid var(--color-border); }
+.panel details > :not(summary) { margin-top: 14px; }
+.panel pre { max-width: 100%; box-sizing: border-box; margin-bottom: 0; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-control); color: var(--color-text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+.panel summary { cursor: pointer; color: var(--color-text); font-weight: 600; }
+.panel summary:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 4px; border-radius: 2px; }
+@media (max-width: 700px) {
+  .panel { padding: 16px 16px 24px; }
+}

@@ -40,6 +40,21 @@ describe('HandResult', () => {
     expect(container.querySelectorAll('details article')).toHaveLength(1)
   })
 
+  it('labels historical results and only offers returning to the live table', () => {
+    const context = createPreviewValue('result-split')
+    const onClose = vi.fn()
+    render(<SocketContext.Provider value={context}>
+      <HandResult result={{ ...context.handResult, handId: 'previous' }}
+        gameState={{ ...context.gameState, handId: 'current', allowedActions: { end: true, nextHand: true } }}
+        onClose={onClose} />
+    </SocketContext.Provider>)
+    expect(screen.getByRole('dialog', { name: '上一手结算' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '开始下一手' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '结束游戏' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回牌桌' }))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
   it('does not offer another hand when only one player has chips', () => {
     const context = createPreviewValue('result-last-player')
     render(

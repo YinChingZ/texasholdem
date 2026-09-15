@@ -263,6 +263,12 @@ export function useTableSequencer({ gameState, handResult, heroId, recoveryVersi
       pendingResultRef.current = null
       return
     }
+    // 历史结果只打开弹窗，不能加入当前手的摊牌队列或覆盖牌桌派彩。
+    if (handResult.handId && diffBaseRef.current?.handId && handResult.handId !== diffBaseRef.current.handId) {
+      pendingResultRef.current = null
+      setDisplayHandResult(handResult)
+      return
+    }
     if (awaitingResultRef.current) {
       // HAND_ENDED 已处理（服务端延迟发送结果的情况）：直接入队播放
       awaitingResultRef.current = false

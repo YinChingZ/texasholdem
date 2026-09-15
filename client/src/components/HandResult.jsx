@@ -27,6 +27,7 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
   const winners = Array.isArray(result.winners) ? result.winners : []
   const playersHands = Array.isArray(result.playersHands) ? result.playersHands : []
   const rankedPlayers = Array.isArray(result.handComparison?.rankedPlayers) ? result.handComparison.rankedPlayers : []
+  const isPreviousHand = result.handId && gameState?.handId && result.handId !== gameState.handId
   const playersWithChips = gameState?.players?.filter((player) => player.chips > 0).length ?? 0
   const onlyOnePlayerLeft = playersWithChips <= 1
   const canContinue = gameState?.allowedActions ? gameState.allowedActions.nextHand : !onlyOnePlayerLeft
@@ -43,7 +44,9 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
     onEndGame?.()
   }
 
-  const footer = isRoomCreator ? (
+  const footer = isPreviousHand ? (
+    <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
+  ) : isRoomCreator ? (
     <>
       <Button variant="ghost" onClick={onClose}>返回牌桌</Button>
       {(!gameState?.allowedActions || gameState.allowedActions.end) && <Button variant="ghost" onClick={endGame}>结束游戏</Button>}
@@ -58,10 +61,10 @@ export default function HandResult({ result, socket, roomId, onClose, gameState,
 
   return (
     <ModalDialog
-      title="本手结算"
+      title={isPreviousHand ? '上一手结算' : '本手结算'}
       description={totalAwarded ? `本手共结算 ${totalAwarded.toLocaleString('zh-CN')} 筹码` : '本手牌局已经结束'}
       size="medium"
-      closeLabel="关闭本手结算"
+      closeLabel={isPreviousHand ? '关闭上一手结算' : '关闭本手结算'}
       onClose={onClose}
       footer={footer}
     >

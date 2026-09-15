@@ -140,6 +140,37 @@ describe('useTableSequencer', () => {
     expect(result.current.tableAwards).toEqual({})
   })
 
+  it('下一手进行中立即查看上一手，且不会把旧结果带入当前手结算', () => {
+    const current = snapshot({ handId: 'current' })
+    const previousResult = {
+      handId: 'previous',
+      winners: [{ playerId: 'hero', amount: 200 }],
+      communityCards: ['Ah', '7c', '2s', 'Td', '9h'],
+      playersHands: [{ playerId: 'hero', hand: [{ rank: 'A', suit: 'Clubs' }] }],
+      showAllHands: true,
+    }
+    const { result, rerender } = renderSequencer(current)
+    rerender({ gameState: current, handResult: previousResult })
+    expect(result.current.displayHandResult).toBe(previousResult)
+    expect(result.current.displayState).toBe(current)
+    expect(result.current.tableAwards).toEqual({})
+    expect(result.current.revealedHands).toEqual({})
+
+    const ended = snapshot({ handId: 'current', gameState: 'SHOWDOWN_COMPLETE' })
+    rerender({ gameState: ended, handResult: previousResult })
+    act(() => vi.advanceTimersByTime(5000))
+    expect(soundManager.playPotCollect).not.toHaveBeenCalled()
+    expect(result.current.tableAwards).toEqual({})
+    const currentResult = { handId: 'current', winners: [{ playerId: 'villain', amount: 80 }] }
+    rerender({ gameState: ended, handResult: currentResult })
+    act(() => vi.advanceTimersByTime(5000))
+    expect(result.current.displayHandResult).toBe(currentResult)
+    expect(result.current.tableAwards).toEqual({ villain: { amount: 80 } })
+
+    rerender({ gameState: ended, handResult: null })
+    expect(result.current.displayHandResult).toBeNull()
+  })
+
   it('WAITING 快照触发硬同步清空队列', () => {
     const mid = snapshot({ currentPlayerTurn: 'villain', currentBet: 10 })
     const { result, rerender } = renderSequencer(mid)
