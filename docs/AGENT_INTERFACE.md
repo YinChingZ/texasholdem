@@ -116,3 +116,7 @@ MCP 集成测试启动真实 STDIO 适配器和 Python 客户端，通过真实 
 `node agent/verify-codex.mjs` 是**可选实机验收**，会调用本机已登录的 Codex CLI 和当前配置的模型，产生正常 Codex 用量，与 Python 客户端玩至少 3 手。它使用临时工作目录及临时 MCP 配置，不改全局设置、不保存凭证；输出日志位置和完成手数。
 
 运维日志只包含授权生命周期、控制权撤销原因、拒绝代码、超时及耗时，不记录凭证或底牌。测试验收记录见 [`AGENT_ACCEPTANCE.md`](AGENT_ACCEPTANCE.md)。
+
+## 远程 MCP 与网页配对
+
+新增 `POST /mcp` 和浏览器命令 `createAgentPairing`，与原有 HTTP v1 / Socket.IO v2 共用 RoomService。使用 `AGENT_ENABLED` 同一开关。配对码5分钟有效且只能兑换一次。入门和工具参数见 [快速开始](AGENT_QUICKSTART.md)。原有本地六工具接口保持兼容，远程入口以 `connect_seat` 代替本地的 `connect_table`。

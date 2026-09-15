@@ -221,3 +221,33 @@ test('a prior check retains raise rights against a short opening all-in; complet
   g.playerAction('a', 'raise', 7);
   assert.equal(g.currentBet, 10); assert.equal(g.minRaise, 10);
 });
+
+test('pairing is one-use, seat scoped, hashed, and revoked with browser takeover', () => {
+  const h = setup();
+  const pair = h.cmd(0, 'createAgentPairing');
+  assert(pair.ok); assert.match(pair.pairingCode, /^[A-F0-9]{4}(-[A-F0-9]{4}){3}$/);
+  assert.equal(pair.agentToken, undefined);
+  assert.equal(h.members[0].agent.connected, false);
+  assert(!JSON.stringify([...h.members[0].requests.values()]).includes(pair.pairingCode));
+  const result = h.service.pairAgent(pair.pairingCode);
+  assert(result.ok); assert.equal(result.observation.self.playerId, h.members[0].id);
+  assert.equal(h.service.pairAgent(pair.pairingCode).code, 'PAIRING_INVALID');
+  assert.equal(h.service.agentCommand(result.seatKey, 'observation').observation.self.playerId, h.members[0].id);
+  assert(!JSON.stringify(h.logs).includes(result.seatKey));
+  h.cmd(0, 'reclaimControl');
+  assert.equal(h.service.agentCommand(result.seatKey, 'observation').code, 'INVALID_GRANT');
+  assert.equal(h.service.agentPairings.size, 0); h.service.dispose();
+});
+
+test('pair codes expire and replacement, shutdown and feature disable invalidate them', () => {
+  for (const operation of ['expire', 'replace', 'reclaim', 'disable', 'dispose']) {
+    const h = setup(), pair = h.cmd(0, 'createAgentPairing');
+    if (operation === 'expire') h.clock.nowValue += 300001;
+    if (operation === 'replace') h.grant(0);
+    if (operation === 'reclaim') h.cmd(0, 'reclaimControl');
+    if (operation === 'disable') h.service.setAgentEnabled(false);
+    if (operation === 'dispose') h.service.dispose();
+    assert.equal(h.service.pairAgent(pair.pairingCode).ok, false, operation);
+    h.service.dispose(); assert.equal(h.service.agentPairings.size, 0);
+  }
+});

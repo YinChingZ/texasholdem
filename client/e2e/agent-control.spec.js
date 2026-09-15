@@ -9,6 +9,7 @@ async function enter(page, name, room) {
 }
 async function grant(page) {
   await page.getByRole('button', { name: 'Agent 托管', exact: true }).click()
+  await page.getByText('高级：本地 MCP / HTTP 凭证', { exact: true }).click()
   await page.getByRole('button', { name: '生成授权', exact: true }).click()
   const field = page.getByLabel('Agent 凭证', { exact: true })
   await expect(field).toBeVisible()

@@ -21,6 +21,7 @@ class RoomService {
     this.bindings = new Map();
     this.entryRequests = new Map();
     this.agentGrants = new Map();
+    this.agentPairings = new Map();
     this.agentListeners = new Set();
   }
 
@@ -242,7 +243,7 @@ class RoomService {
       if (command === 'syncSession') response = { ok: true, token: member.token };
       else if (command === 'commandStatus') response = { ok: true, commandResult: member.requests.get(args.commandRequestId)?.response || null };
       else response = this.mutate(room, member, command, args) || { ok: true };
-      const { agentToken: _secret, ...receiptResponse } = response;
+      const { agentToken: _secret, pairingCode: _pairing, ...receiptResponse } = response;
       this.remember(member.requests, args.requestId, { fingerprint, response: receiptResponse });
       if (response.left || response.closed) {
         let receipts = this.entryRequests.get(socketId);
@@ -258,7 +259,7 @@ class RoomService {
   }
 
   mutate(room, member, command, args) {
-    if (['createAgentGrant', 'reclaimControl'].includes(command)) return this.agentBrowserCommand(room, member, command);
+    if (['createAgentGrant', 'createAgentPairing', 'reclaimControl'].includes(command)) return this.agentBrowserCommand(room, member, command);
     if (room.training) { const response = this.trainingCommand(room, member, command, args); if (response) return response; }
     switch (command) {
       case 'startGame':

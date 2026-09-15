@@ -148,7 +148,7 @@ docker run -p 3000:3000 texasholdem-server
 
 ## 自带 Agent 托管
 
-普通房间支持将自己的座位授权给 Codex 或其他 Agent，网页继续看牌并可随时接回操作。提供 HTTP API、STDIO MCP 和 JavaScript / Python 示例；服务端默认关闭，使用 `AGENT_ENABLED=true` 启用。详见 [接入说明](docs/AGENT_INTERFACE.md) 和 [验收记录](docs/AGENT_ACCEPTANCE.md)。
+普通房间支持将自己的座位授权给 Codex、Claude Code、DeepSeek Harness 或其他 Agent，网页继续看牌并可随时接回操作。提供 HTTP API、STDIO MCP 和 JavaScript / Python 示例；服务端默认关闭，使用 `AGENT_ENABLED=true` 启用。详见 [接入说明](docs/AGENT_INTERFACE.md) 和 [验收记录](docs/AGENT_ACCEPTANCE.md)。
 
 ## 💡 未来可以探索的方向
 
@@ -165,3 +165,5 @@ docker run -p 3000:3000 texasholdem-server
 ## 📄 许可证
 
 MIT License
+
+推荐使用远程 MCP + 一次性配对码，无需下载源码或保存凭证文件：[三客户端快速开始](docs/AGENT_QUICKSTART.md)。

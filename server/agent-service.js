@@ -22,6 +22,8 @@ module.exports = {
     if (!member.agent) return;
     const a = member.agent;
     this.agentGrants.delete(a.hash);
+    if (a.pairHash) this.agentPairings.delete(a.pairHash);
+    this.cancel(room, `agent-pair:${member.id}`);
     this.cancel(room, `agent-expiry:${member.id}`); this.cancel(room, `agent-active:${member.id}`);
     member.agent = null; member.controlVersion = (member.controlVersion || 0) + 1;
     if (!member.socketId) member.sittingOut = true;
@@ -45,7 +47,36 @@ module.exports = {
       this.revokeAgent(room, member, 'expired'); this.checkIdle(room); this.reconcile(room);
     });
     this.log('agent_granted', { roomId: room.id, playerId: member.id });
+    if (command === 'createAgentPairing') {
+      const code = crypto.randomBytes(8).toString('hex').toUpperCase();
+      a.pairHash = digest(code); a.pairExpiresAt = this.clock.now() + 300000;
+      this.agentPairings.set(a.pairHash, { room, member });
+      this.timer(room, `agent-pair:${member.id}`, 300000, () => {
+        if (member.agent === a && a.pairHash) {
+          this.revokeAgent(room, member, 'pairing_expired'); this.checkIdle(room); this.reconcile(room);
+        }
+      });
+      return { ok: true, pairingCode: code.match(/.{4}/g).join('-'), pairingExpiresAt: a.pairExpiresAt };
+    }
     return { ok: true, agentToken: token };
+  },
+  pairAgent(code) {
+    try {
+      if (!this.config.agentEnabled) throw fail('AGENT_DISABLED', 'Agent 托管已停用');
+      if (typeof code !== 'string' || !/^[A-Fa-f0-9-]{16,19}$/.test(code)) throw fail('PAIRING_INVALID', '配对码无效、已使用或已过期，请在网页重新生成');
+      const hash = digest(code.replaceAll('-', '').toUpperCase());
+      const binding = this.agentPairings.get(hash);
+      const a = binding?.member.agent;
+      if (!a || a.pairHash !== hash || a.pairExpiresAt <= this.clock.now() || !this.rooms.has(binding.room.id))
+        throw fail('PAIRING_INVALID', '配对码无效、已使用或已过期，请在网页重新生成');
+      this.agentPairings.delete(hash); delete a.pairHash;
+      this.cancel(binding.room, `agent-pair:${binding.member.id}`);
+      this.agentGrants.delete(a.hash);
+      const seatKey = crypto.randomBytes(32).toString('base64url');
+      a.hash = digest(seatKey); this.agentGrants.set(a.hash, binding);
+      const result = this.agentCommand(seatKey, 'connect');
+      return result.ok ? { ...result, seatKey } : result;
+    } catch (error) { return this.errorResponse(error); }
   },
   authorizeAgent(token, { connected = true, rate = true } = {}) {
     if (!this.config.agentEnabled) throw fail('AGENT_DISABLED', 'Agent 托管已停用');
