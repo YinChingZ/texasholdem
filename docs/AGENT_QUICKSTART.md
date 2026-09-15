@@ -38,22 +38,46 @@ claude mcp add --transport http --scope user holdem https://texasholdem-elub.onr
 
 ## DeepSeek Harness
 
-在所用 Agent 预设的 `agent.cordis.yml` 添加：
+推荐在 Web profile 的 `~/.dsh/profiles/web/cordis.patch.yml` 中合并以下补丁，保留已有配置：
 
 ```yaml
-- id: mcp-holdem
-  name: '@deepseek-ai/dsh-mcp-client'
-  config:
-    serverName: holdem
-    transport: streamable-http
-    url: https://texasholdem-elub.onrender.com/mcp
-    toolCallTimeoutMs: 45000
+- insert:
+    - id: mcp-holdem
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: holdem
+        transport: streamable-http
+        url: https://texasholdem-elub.onrender.com/mcp
+        toolCallTimeoutMs: 45000
 ```
 
-Web 版在 `~/.dsh/.agent-presets/<你的预设>/agent.cordis.yml` 中配置工具，
-然后新建会话并选择该预设；已有同名 MCP 时替换旧条目。
+重新加载或重启 `dsh --profile web` 后，在会话中使用网页的配对指令。
+已有同名 MCP 时更新旧条目；不要在补丁与预设里重复挂载同名工具。
+仅需要给特定会话提供工具时，也可以在自定义预设的 `agent.cordis.yml` 中挂载上面的插件条目（去掉外层 `insert`）。专用预设不是必需条件。
+
+### 可选：本地 STDIO
+
+本地适配器也使用同一个补丁位置，修改传输配置即可：
+
+```yaml
+- insert:
+    - id: mcp-holdem
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: holdem
+        transport: stdio
+        command: node
+        args: ['/ABSOLUTE/PATH/texasholdem/agent/mcp.mjs']
+        env:
+          HOLDEM_API_URL: https://texasholdem-elub.onrender.com
+          HOLDEM_AGENT_TOKEN: !!js process.env.HOLDEM_AGENT_TOKEN
+        toolCallTimeoutMs: 45000
+```
+
+本地方式需要安装 `agent` 依赖，并在启动 DSH 的环境中设置网页高级入口生成的座位凭证。
+该适配器使用 `connect_table`；远程配对入口使用 `connect_seat`，两者不要混用。
+一般玩家优先选择远程方式，无需本地程序或凭证环境变量。
 模型凭据仍在 DeepSeek 自己的设置中，网站无需这些信息。
-本地验证依据 DSH 0.1.5-rc.1 安装包的 MCP 和 agent-presets 文档。
 
 ## 运行与停止
 
