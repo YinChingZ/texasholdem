@@ -46,3 +46,31 @@ test('play stops at max completed hands and releases; sitting out also stops', a
     assert.equal(release, 1);
   }
 });
+
+test('token file can arrive after discovery and rotate without restart', async t => {
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = await mkdtemp(join(tmpdir(), 'holdem-token-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const tokenFile = join(dir, 'seat.token'), seen = [];
+  const client = new HoldemClient({ url: 'https://example.test', tokenFile, fetchImpl: async (_url, options) => {
+    seen.push(options.headers.Authorization); return { json: async () => ({ ok: true }) };
+  } });
+  await assert.rejects(client.observe(), { code: 'CREDENTIAL_REQUIRED' });
+  await writeFile(tokenFile, 'first'); await client.observe();
+  await writeFile(tokenFile, 'second'); await client.observe();
+  assert.deepEqual(seen, ['Bearer first', 'Bearer second']);
+});
+
+test('MCP projection retains required identifiers while full validation rejects bad amounts', async () => {
+  const { toolSchema } = await import('./tool-schema.mjs');
+  const projected = toolSchema(schema.definitions.action);
+  assert.deepEqual(projected.required, schema.definitions.action.required);
+  assert.equal(projected.properties.action.type, 'string');
+  const args = { requestId: 'one', handId: 'h', turnId: 't', controlVersion: 1, action: 'raise_to', amount: -1 };
+  assert(new Ajv().compile(projected)(args));
+  assert(!new Ajv().compile(schema.definitions.action)(args));
+  const validateResponse = new Ajv().compile(toolSchema(schema.definitions.response));
+  assert(validateResponse({ ok: false, code: 'INVALID_GRANT', message: 'expired' }));
+});

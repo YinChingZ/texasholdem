@@ -1,23 +1,30 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 export class AgentError extends Error {
   constructor(result) { super(result.message || result.code); this.code = result.code; }
 }
 export class HoldemClient {
-  constructor({ url = process.env.HOLDEM_API_URL, token = process.env.HOLDEM_AGENT_TOKEN, fetchImpl = fetch } = {}) {
+  constructor({ url = process.env.HOLDEM_API_URL, token = process.env.HOLDEM_AGENT_TOKEN, tokenFile = process.env.HOLDEM_AGENT_TOKEN_FILE, fetchImpl = fetch } = {}) {
     const endpoint = new URL(url);
     if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash ||
       (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname))))
       throw new Error('Use HTTPS, or HTTP on localhost only.');
-    if (!token) throw new Error('HOLDEM_AGENT_TOKEN is required');
-    this.base = new URL('/api/agent/v1/', endpoint); this.token = token; this.fetch = fetchImpl;
+    if (!token && !tokenFile) throw new Error('HOLDEM_AGENT_TOKEN or HOLDEM_AGENT_TOKEN_FILE is required');
+    this.base = new URL('/api/agent/v1/', endpoint); this.token = token; this.tokenFile = tokenFile; this.fetch = fetchImpl;
     this.observation = null; this.timer = null; this.heartbeatBusy = false;
   }
   async request(path, method = 'GET', body, signal, retries = 2) {
     for (let attempt = 0; ; attempt++) {
       try {
+        let token = this.token;
+        if (this.tokenFile) {
+          try { token = readFileSync(this.tokenFile, 'utf8').trim(); }
+          catch { throw new AgentError({ code: 'CREDENTIAL_REQUIRED', message: '座位凭证尚未就绪，请先创建房间或保存座位凭证。' }); }
+        }
+        if (!token) throw new AgentError({ code: 'CREDENTIAL_REQUIRED', message: '座位凭证为空' });
         const response = await this.fetch(new URL(path, this.base), {
-          method, headers: { Authorization: `Bearer ${this.token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+          method, headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
           body: body ? JSON.stringify(body) : undefined, redirect: 'error',
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
         });
