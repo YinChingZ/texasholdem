@@ -50,7 +50,7 @@ describe('LobbyScreen', () => {
   it('keeps a one-player room from starting', () => {
     renderLobby('lobby-one')
     expect(screen.getByRole('button', { name: /开始游戏/ })).toBeDisabled()
-    expect(screen.getByText('等待牌友加入')).toBeInTheDocument()
+    expect(screen.getByText('分享邀请链接，再来一位就能开局。')).toBeInTheDocument()
   })
 
   it('uses a confirmation dialog before a guest becomes a spectator', async () => {

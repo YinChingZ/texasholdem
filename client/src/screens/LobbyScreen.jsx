@@ -66,23 +66,33 @@ export default function LobbyScreen({ room, gameState, currentUserId, isRoomCrea
         <div><span>房间号</span><h1 data-testid="room-code">{room.id}</h1></div>
         <Button variant="ghost" onClick={onCopyRoomId} aria-label="复制邀请链接">{copySuccess ? <Check size={18} /> : <Copy size={18} />}复制邀请</Button>
       </section>
+      <div className={styles.preparationGrid}>
       <section className={styles.roster} aria-labelledby="participant-title">
-        <header><h2 id="participant-title">玩家 <span>{players.length}/8</span></h2></header>
+        <header><h2 id="participant-title">入座玩家 <span>{players.length}/8</span></h2></header>
         <ul className={styles.playerList}>{players.map(player => <li key={player.id}>
           <PlayerAvatar name={player.nickname} className={styles.avatar} />
           <strong title={player.nickname}>{player.nickname}{player.connected === false && <small>离线</small>}{player.id === currentUserId && <small>你</small>}{player.agentControlled && <small>Agent 托管</small>}</strong>
           {player.id === gameState.creator && <span className={styles.owner}><Crown size={14} />房主</span>}
         </li>)}</ul>
-        {players.length < 2 && <p className={styles.emptySeat}>等待牌友加入</p>}
+        {players.length < 2 && <p className={styles.emptySeat}>分享邀请链接，再来一位就能开局。</p>}
         {spectators.length > 0 && <div className={styles.spectators}><Eye size={16} /><span>旁观</span>{spectators.map(player => <span key={player.id}>{player.nickname}</span>)}</div>}
       </section>
-      <div className={styles.settingsSummary}><span>初始筹码 <strong>{formatChips(gameState.settings?.initialChips ?? initialChips)}</strong></span><span>{showAllHands ? '结算全部亮牌' : '仅赢家亮牌'}</span>{isRoomCreator && <Button variant="ghost" onClick={() => setPanel('settings')}><Settings size={16} />设置</Button>}</div>
-      <AgentPanel key={room.id} gameState={gameState} onCommand={onCommand} />
-      {isRoomCreator && <label className={styles.settingsSummary}>每步思考时间
-        <select aria-label="每步思考时间" value={gameState.settings?.turnMs ?? 45000} onChange={event => onCommand('updateRoomSettings', { settings: { turnMs: Number(event.target.value) } })}>
-          <option value={45000}>标准 · 45 秒</option><option value={120000}>慢速 · 120 秒</option>
-        </select>
-      </label>}
+      <div className={styles.preparation}>
+        <section className={styles.tableSettings} aria-labelledby="table-settings-title">
+          <header className={styles.sectionHeading}><h2 id="table-settings-title">牌桌设置</h2>{isRoomCreator && <Button variant="ghost" onClick={() => setPanel('settings')}><Settings size={16} />设置</Button>}</header>
+          <div className={styles.settingsSummary}><span>初始筹码<strong>{formatChips(gameState.settings?.initialChips ?? initialChips)}</strong></span><span>结算亮牌<strong>{showAllHands ? '全部手牌' : '仅赢家'}</strong></span></div>
+          <label className={styles.turnSetting}><span>每步思考时间<small>整桌统一，开局后锁定</small></span>
+            {isRoomCreator ? <select aria-label="每步思考时间" value={gameState.settings?.turnMs ?? 45000} onChange={event => onCommand('updateRoomSettings', { settings: { turnMs: Number(event.target.value) } })}>
+              <option value={45000}>标准 · 45 秒</option><option value={120000}>慢速 · 120 秒</option>
+            </select> : <strong>{(gameState.settings?.turnMs ?? 45000) / 1000} 秒</strong>}
+          </label>
+        </section>
+        {gameState.agentEnabled && gameState.self?.role === 'player' && <section className={styles.agentSection} aria-label="座位操作">
+          <h2>你的座位</h2>
+          <AgentPanel key={room.id} gameState={gameState} onCommand={onCommand} />
+        </section>}
+      </div>
+      </div>
       <section className={styles.actions} aria-label="大厅操作">
         <div className={styles.startArea}><Button disabled={gameState.allowedActions ? !gameState.allowedActions.start : !isRoomCreator || players.length < 2} onClick={onStartGame}>{isRoomCreator ? '开始游戏' : '等待房主开始'}</Button>{players.length < 2 && <span>至少需要 2 位玩家</span>}</div>
         {(isSpectator || !isRoomCreator) && (isSpectator ? <Button variant="ghost" onClick={onSwitchToPlayer}><Users size={16} />加入对局</Button> : <Button variant="ghost" onClick={() => requestConfirmation('spectate')}><Eye size={16} />旁观</Button>)}

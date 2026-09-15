@@ -1,169 +1,206 @@
-# 在线德州扑克游戏 (Texas Hold'em Poker Game)
+# 德州扑克 · Texas Hold’em
 
-一个使用React和Node.js构建的、功能完善的在线多人德州扑克游戏。项目采用现代Web技术栈，实现了完整的游戏逻辑、实时的玩家交互和友好的用户界面。
+一个支持朋友同桌、单人观察练习和自带 Agent 托管的在线德州扑克网站。使用虚拟筹码，无需注册账号；玩家通过浏览器身份恢复原座位。
 
-## ✨ 功能特点
+**[在线游玩](https://texasholdem.top)** · **[Agent 快速接入](docs/AGENT_QUICKSTART.md)** · **[观察练习](docs/OBSERVATION_TRAINING.md)** · **[开发与协议](docs/STATE_AND_SESSION.md)**
 
-- **完整的德州扑克规则**: 实现了包括盲注、翻牌、转牌、河牌、下注、跟注、加注、弃牌和比牌在内的全套德州扑克逻辑。
-- **多人在线实时对战**: 基于 WebSocket 技术，支持多名玩家在同一房间内进行实时游戏。
-- **会话恢复与重连**: 支持玩家在意外断线后自动重连到原房间，保持游戏连续性。
-- **连接状态监控**: 实时显示连接状态，在网络异常时提供可视化反馈。
-- **灵活的房间管理**: 支持创建、加入和主动退出房间，玩家可以自由控制游戏参与状态。
-- **现代牌室双主题**: 提供低饱和牌桌绿、暖金点缀的白天和夜间主题，包含完整的多端牌桌、结算与排行榜界面。
-- **克制且可访问的动效**: 统一状态切换、弹层和消息动效，并支持 `prefers-reduced-motion`。
-- **游戏音效支持**: 为关键游戏事件（如下注、发牌、获胜）配备了音效，提升游戏沉浸感。
-- **实时聊天功能**: 内置聊天框，方便玩家在游戏过程中进行交流。
-- **响应式设计**: 界面适配不同尺寸的屏幕，支持在移动设备上进行游戏。
+![准备页：玩家列表、牌桌设置和座位操作](docs/previews/lobby-desktop.png)
 
-## 🚀 技术栈
+## 三种玩法
 
-| 分类 | 技术 | 描述 |
-| :--- | :--- | :--- |
-| **前端** | React 18+ | 用于构建用户界面的声明式JavaScript库。 |
-| | Vite | 现代化的前端构建工具，提供极速的开发体验。 |
-| | Socket.IO Client | 实现客户端与服务器之间的实时、双向通信。 |
-| | CSS3 | 用于样式设计和动画效果。 |
-| **后端** | Node.js | JavaScript 运行时，用于构建可扩展的网络应用。 |
-| | Express | 简洁而灵活的 Node.js Web 应用框架。 |
-| | Socket.IO | 实现服务器与客户端之间的实时、双向通信。 |
-| | `poker-evaluator` | 用于评估和比较德州扑克手牌大小的库。 |
-| **部署** | Docker | (可选) 用于容器化部署后端服务。 |
+### 和朋友同桌
 
-## 🏛️ 系统架构
+输入昵称创建房间，把邀请链接发给朋友，也可以通过房间号加入。普通房间最多 8 个玩家座位，至少 2 位玩家才能开局，支持旁观和聊天。
 
-项目采用经典的 **客户端-服务器 (Client-Server)** 架构，通过 **WebSocket** 进行实时通信。
+- **牌局规则**：盲注、翻牌、转牌、河牌、过牌、跟注、加注、弃牌、全押、边池与摊牌结算。
+- **开局设置**：初始筹码 500–50,000，默认 1,000；结算显示全部手牌或仅赢家；整桌行动时间 45 秒或 120 秒，开局后锁定至重置。
+- **连续游戏**：默认结算后 8 秒自动续局，支持暂停、结束本场、重新准备和查看上一手结算。场内筹码排名用于本场回顾。
+- **离线处理**：行动超时自动过牌或弃牌，连续两次超时进入暂离；恢复后可回到牌桌。房主断线默认 30 秒后交接。
+- **页面体验**：桌面与手机布局、明暗主题、发牌与派彩动画、音效、聊天抽屉和减少动态效果支持。准备页集中展示玩家、设置和自己的座位操作。
 
-### 整体架构图
+建议不同玩家使用独立浏览器配置或设备。同一浏览器中打开同一房间可能恢复已有身份，不一定创建新玩家。
 
-```mermaid
-graph TD
-    subgraph "客户端 (Client)"
-        A["React UI Components"] --> B{"SocketContext"};
-        B --> C["Socket.IO Client"];
-    end
+### 单人观察练习
 
-    subgraph "服务器 (Server)"
-        D["Socket.IO Server"] --> E{"事件处理器"};
-        E --> F["游戏逻辑 (game.js)"];
-        F --> G["游戏状态管理"];
-    end
+首页选择 **观察练习**，与三名风格隐藏的规则电脑进行 20 手练习。每手重新分配 1,000 筹码，盲注 5/10；真人没有行动倒计时。
 
-    C <-- "Real-time Events" --> D;
+- 记录对手行为、判断与把握程度，第 5、10、15 手提供阶段观察提示。
+- 可暂停；断线时自动暂停；弃牌后可快速看完本手。
+- 实时教练解释投入、底池门槛、牌面风险与公开行动样本，反馈按当时信息保存。
+- 结束后查看证据复盘，额外底牌和后续结果需要主动揭示。
+- 报告保存在当前浏览器 IndexedDB，保留最近 20 份，支持 JSON 下载。
 
-    style A fill:#cde4ff
-    style F fill:#d5e8d4
+电脑策略和实时教练基于规则，旨在帮助观察与理解，不是专业扑克求解器，也不提供最优行动保证。详见 [训练说明](docs/OBSERVATION_TRAINING.md)。
+
+### 让自己的 Agent 代打
+
+支持 **Codex 桌面客户端、Claude Code、DeepSeek Harness**，以及兼容 Streamable HTTP MCP 的其他客户端。
+
+1. **首次添加牌桌工具**：在客户端添加名称为 `holdem` 的远程 MCP。
+2. **网页取得座位**：创建或加入普通房间，打开 **Agent 托管 → 生成配对码**。
+3. **发出连接指令**：点击 **复制连接指令**，粘贴给 Agent；连接成功后开始代打。
+
+远程 MCP 地址：
+
+```text
+https://texasholdem-elub.onrender.com/mcp
 ```
 
-### 后端 (Server)
+Claude Code 首次配置：
 
-- `index.js`：HTTP / Socket.IO 适配层，处理连接与命令确认。
-- `room-service.js`：房间、稳定玩家身份、场次、行动期限、自动续局和房主交接的统一入口，支持注入时钟测试。
-- `game.js`：发牌、下注、盲注、边池、摊牌与筹码结算。
-
-### 前端 (Client)
-
-`SessionClient` 分开处理网络连接和身份恢复，以完整权威快照更新 `SocketContext`。`GameTable` 协调欢迎、连接、大厅和牌桌；`useTableSequencer` 只负责展示动画，重连时丢弃旧队列。牌桌常驻自动续局、暂停、回到牌桌和查看上一手入口。
-
-## 📡 通信与恢复
-
-当前使用协议 v2：`resumeSession` 恢复稳定身份，`roomSnapshot` 一次性同步公开状态和对应玩家的私有状态；命令带请求标识与连接代次，下注还需匹配手牌及行动标识。断线不重置行动期限，结算后默认 8 秒自动续局，房主断线 30 秒后交接。离线成员保留本场身份和筹码。
-
-完整协议、状态转换、配置、发布限制与验证命令见 [状态与会话协议 v2](docs/STATE_AND_SESSION.md)，实机操作见 [重连验收指南](RECONNECT_TEST_GUIDE.md)。前后端需同步升级；本轮不支持服务端重启后恢复内存牌局。
-
-## 📦 项目结构
-
-```
-texasholdem/
-├── client/          # React前端应用
-│   ├── src/
-│   │   ├── screens/     # 欢迎、连接、大厅和游戏页面
-│   │   ├── components/  # 游戏、聊天与基础 UI 组件
-│   │   ├── contexts/    # React上下文 (SocketContext)
-│   │   ├── hooks/       # ViewModel、聊天、音效与消息 Hooks
-│   │   ├── styles/      # 白天/夜间设计令牌
-│   │   └── dev/         # 确定性 UI 预览 fixture
-│   └── public/      # 静态资源
-├── server/          # Node.js后端服务
-│   ├── index.js     # HTTP / Socket.IO 适配
-│   ├── room-service.js # 房间、身份、场次与定时任务
-│   ├── game.js      # 核心游戏逻辑和状态机
-│   └── Dockerfile   # Docker配置
-└── README.md
+```sh
+claude mcp add --transport http --scope user holdem https://texasholdem-elub.onrender.com/mcp
 ```
 
-## 🚀 快速开始
+Codex 可以直接在桌面客户端设置中添加远程 MCP，无需安装 Codex CLI。三种客户端的详细步骤见 [Agent 快速开始](docs/AGENT_QUICKSTART.md)。
 
-### 环境要求
+**玩家无需下载源码、安装本地适配器或向网站提供模型密钥。** 配对码 5 分钟有效且只能兑换一次；Agent 后续使用工具返回的秘密座位凭据，玩家不必手动保存。不要分享含该凭据的完整工具日志。
 
-- Node.js 22.13+（本地已在 Node.js 26 验证）
-- npm 或 yarn
+托管期间网页继续显示本人底牌，随时可 **接回操作**。重新授权、接管、离桌或场次结束会撤销旧授权；最长有效 24 小时。远程 Agent 请求刷新 90 秒活跃期限，须持续观察、等待与行动；网站不会唤醒已经结束的 Harness 任务。网页生成的指令默认最多完成 20 手。
 
-### 安装和运行
+当前 MCP 控制的是**已授权座位**，不提供自动找房、自由入座或房主管理权限，也不接入单人训练。需要直接集成时，另有 HTTP API v1、本地 STDIO MCP、JavaScript 客户端和 Python 示例。
 
-1.  **克隆仓库**
-    ```bash
-    git clone https://github.com/YinChingZ/texasholdem.git
-    cd texasholdem
-    ```
+## 本地运行
 
-2.  **安装后端依赖并启动服务器**
-    ```bash
-    cd server
-    npm install
-    npm run dev
-    ```
-    服务器将运行在 `http://localhost:3000`。
+推荐 Node.js 22.13+ 与 npm，本机也已在 Node.js 26 验证。仓库的前端、后端与 Agent 目录分别安装依赖。
 
-3.  **安装前端依赖并启动客户端**
-    ```bash
-    cd ../client
-    npm install
-    npm run dev
-    ```
-    客户端将在 `http://localhost:5173` 启动，并自动在浏览器中打开。
-
-4.  **开始游戏**
-    - 在浏览器中打开两个或多个标签页，分别输入不同的昵称。
-    - 第一个玩家创建房间，并将房间ID分享给其他玩家。
-    - 其他玩家使用房间ID加入。
-    - 房主点击“开始游戏”即可享受德州扑克的乐趣！
-
-### 界面验收
-
-开发模式下访问 `http://localhost:5173/?uiPreview=__index__` 查看固定场景。新界面默认深色，已有主题偏好仍然保留；详细测试和手机适配说明见 [UI_REFACTOR_ACCEPTANCE.md](UI_REFACTOR_ACCEPTANCE.md) 与 [MOBILE_ADAPTATION.md](MOBILE_ADAPTATION.md)。
-
-### Docker 部署
-
-如果你希望使用 Docker 部署后端服务：
-
-```bash
-cd server
-docker build -t texasholdem-server .
-docker run -p 3000:3000 texasholdem-server
+```sh
+git clone https://github.com/YinChingZ/texasholdem.git
+cd texasholdem
+npm ci --prefix server
+npm ci --prefix client
 ```
 
-## 单人观察练习
+终端一，启动游戏后端：
 
-首页新增“观察练习”：与三名风格隐藏的电脑进行 20 手练习，记录观察并在结束后查看证据复盘。支持即时暂停、断线恢复及当前浏览器报告保存；详见 [单人观察训练说明](docs/OBSERVATION_TRAINING.md)。
+```sh
+AGENT_ENABLED=true npm --prefix server start
+```
 
-## 自带 Agent 托管
+终端二，启动前端：
 
-普通房间支持将自己的座位授权给 Codex、Claude Code、DeepSeek Harness 或其他 Agent，网页继续看牌并可随时接回操作。提供 HTTP API、STDIO MCP 和 JavaScript / Python 示例；服务端默认关闭，使用 `AGENT_ENABLED=true` 启用。详见 [接入说明](docs/AGENT_INTERFACE.md) 和 [验收记录](docs/AGENT_ACCEPTANCE.md)。
+```sh
+npm --prefix client run dev
+```
 
-## 💡 未来可以探索的方向
+打开 `http://localhost:5173`。后端默认 `http://localhost:3000`，本地 MCP 地址为 `http://localhost:3000/mcp`。不需要托管功能时可以省略 `AGENT_ENABLED=true`，其默认值为关闭。
 
-- **用户认证与数据持久化**: 集成数据库（如 MongoDB 或 PostgreSQL），实现用户注册、登录和游戏数据的持久化。
-- **更丰富的游戏设置**: 允许房主自定义盲注大小、初始筹码、游戏速度等。
-- **锦标赛模式**: 增加淘汰赛或积分赛等更复杂的游戏模式。
-- **更深入的练习内容**: 扩充观察场景、对手策略与有依据的复盘反馈。
-- **扩展跨浏览器自动化**: 当前以 Chromium 为主，可继续增加 WebKit、Firefox 与真机流水线。
+仅在使用本地 STDIO MCP、JS 示例或 Agent 集成测试时安装：
 
-## 🤝 贡献
+```sh
+npm ci --prefix agent
+```
 
-欢迎提交Issue和Pull Request来改进这个项目！
+开发模式下访问 `http://localhost:5173/?uiPreview=__index__` 可查看固定 UI 场景；生产构建不提供这个预览入口。
 
-## 📄 许可证
+## 部署
 
-MIT License
+当前仓库的生产配置采用 **Vercel 前端 + Render 游戏后端**：
 
-推荐使用远程 MCP + 一次性配对码，无需下载源码或保存凭证文件：[三客户端快速开始](docs/AGENT_QUICKSTART.md)。
+| 部分 | 配置 |
+|---|---|
+| Vercel | 项目根目录 `client`，构建 `npm run build`，输出 `dist` |
+| 前端 API 地址 | `VITE_API_URL=https://texasholdem-elub.onrender.com`，在构建时生效 |
+| Render | 服务根目录 `server`，安装 `npm ci`，启动 `npm start` |
+| Agent 开关 | 在 **Render 后端**设置 `AGENT_ENABLED=true`，不是只设置 Vercel |
+| 健康检查 | `GET /health` |
+| 远程 MCP | `POST /mcp`，与游戏后端部署在一起 |
+
+自建部署需要让域名和 `server/index.js` 中的来源白名单一致，生产请求使用 HTTPS，并支持 Socket.IO 和最长 25 秒的 Agent 等待请求。开发代理目标可通过 `DEV_API_URL` 调整。
+
+后端常用参数：
+
+| 环境变量 | 默认值 | 用途 |
+|---|---:|---|
+| `PORT` | `3000` | HTTP / Socket.IO / MCP 共用端口 |
+| `AGENT_ENABLED` | `false` | 开启 Agent 托管与远程 MCP |
+| `TURN_TIMEOUT_MS` | `45000` | 新房间默认行动时间；网页支持 45 / 120 秒 |
+| `NEXT_HAND_MS` | `8000` | 普通房间结算后续局间隔 |
+| `PACING_MS` | `600` | 自动发公共牌节奏 |
+| `HOST_GRACE_MS` | `30000` | 房主断线交接宽限 |
+| `SESSION_PROBE_MS` | `3000` | 浏览器身份恢复时的旧连接探测 |
+| `ROOM_IDLE_MS` | `1800000` | 全员离线后的房间回收时间 |
+
+前后端协议相关改动需配套发布。服务重启会清空房间和授权，应安排在没有活跃牌局时进行。运行中向服务发送 `SIGHUP` 会关闭 Agent 功能并撤销现有授权；重新开放需要以开启的环境变量启动服务。
+
+## 架构与代码导航
+
+前端使用 **React 19、Vite 6、Socket.IO Client 和 CSS Modules**；后端使用 **Node.js、Express 5、Socket.IO、poker-evaluator、Ajv 和官方 MCP SDK**。
+
+所有游戏写操作由 `RoomService` 同步处理。浏览器 Socket.IO v2、HTTP Agent API v1 和远程 MCP 共用身份、授权、规则、截止时间与幂等检查，不通过伪造浏览器连接接入 Agent。
+
+| 路径 | 职责 |
+|---|---|
+| `server/game.js` | 扑克规则、合法操作、下注、边池与结算 |
+| `server/room-service.js` | 房间、稳定成员身份、场次推进、定时任务与快照 |
+| `server/agent-service.js` | 配对、座位授权、活跃状态、观察与幂等行动 |
+| `server/agent-http.js` / `agent-mcp.js` | HTTP v1 与远程 MCP 适配层 |
+| `server/agent-schema.json` | 共享接口 Schema；执行时完整校验 |
+| `server/training*.js` | 单人练习、规则电脑、观察报告及教练 |
+| `client/src/services/sessionClient.js` | 连接、身份恢复、确认与权威快照 |
+| `client/src/screens/` | 首页、恢复页、准备页和牌桌 |
+| `client/src/hooks/useTableSequencer.js` | 展示动画队列；恢复时丢弃旧动画 |
+| `client/src/components/game/AgentPanel.jsx` | 托管、首次配置、配对与人工接管 |
+| `agent/` | 本地 STDIO MCP、JS / Python 示例及对战辅助脚本 |
+
+服务端为各身份生成私有快照，当前底牌不向其他玩家公开。连接代次与 Agent 控制版本分离；刷新网页不结束托管。下注须匹配手牌、轮次和控制权，同一请求不会重复执行，确认丢失先查询结果。客户端动画不决定游戏状态；查看历史结算不会把旧派彩带入当前手。
+
+## 测试与验证
+
+```sh
+npm --prefix server test
+npm --prefix client test
+npm --prefix agent test
+npm --prefix client run lint
+npm --prefix client run build
+```
+
+浏览器测试需要 Chromium，测试配置会启动真实前后端服务：
+
+```sh
+cd client
+npx playwright install chromium
+AGENT_ENABLED=true E2E_PORT=5178 E2E_API_PORT=3118 npm run test:e2e
+```
+
+覆盖范围包括下注与筹码守恒、多人恢复与接管、定时推进、观察训练、历史结果、托管权限、配对隔离、重试、等待取消及手机布局。视觉快照使用 `npm run test:visual`，不同平台或字体可能需要单独核对基线。
+
+2026-09-15 已验证服务端 56 项、前端 106 项、Agent 9 项测试；另完成真实浏览器配对/托管流程和线上远程 MCP 配对、本人观察、人工撤销检查。本地 STDIO MCP 与 Python 客户端连续完成 20 手。**协议测试不等于三家真实模型均已完成完整对战**，具体验证边界见 [Agent 验收记录](docs/AGENT_ACCEPTANCE.md)。
+
+## 当前边界
+
+- 单进程内存存储，没有数据库、账号体系、多实例共享牌局或服务重启恢复。
+- 普通房间身份依赖浏览器恢复令牌；练习报告仅保存在当前浏览器，不跨设备同步。
+- 不提供真钱、奖金、竞技匹配、跨场排行榜、模型托管或常驻 Agent 运行器。
+- Agent 只读本人可见信息并操作本座位，没有聊天、房主操作或其他玩家身份权限。
+- 远程 MCP 使用每次工具调用携带的秘密 `seatKey` 验证权限，不把公开房间号或 MCP session ID 当作授权。
+- 公网入口限制请求体、请求频率和等待资源；当前代理后可能共享 IP 限额，扩大部署前需配置可信代理与容量策略。
+
+## 2026 年演进
+
+以下按仓库中 2026 年以来的提交梳理；功能说明以上述当前代码为准。
+
+| 日期 | 变化 | 提交 |
+|---|---|---|
+| 07-13 | 响应式牌室界面重构 | `b398849` |
+| 07-16 | 牌桌动画队列和发牌节奏 | `ab37471` |
+| 07-20 | 下注校验、短额全押再加注权、身份恢复和多人健壮性 | `3a4c86b` |
+| 09-11 | 稳定身份、协议 v2、权威快照、断线接管和服务端自动推进 | `6dadc6c` |
+| 09-11 | 牌面字号、同步连接状态、首次进入连接闪屏修复 | `a6fcbd6`、`e2fc08d` |
+| 09-11 | 20 手观察练习、报告与实时教练，修复牌桌遮挡 | `197ddeb`、`c139ae0` |
+| 09-12 | 可分享的房间邀请链接 | `6528b38` |
+| 09-15 | 普通座位 Agent 托管、HTTP API、本地 MCP、客户端示例 | `c0bccd0` |
+| 09-15 | DeepSeek 兼容、对战辅助工具和 Codex 桌面会话接入 | `b09b789`、`2422a5c` |
+| 09-15 | 托管面板样式与历史手牌结算隔离 | `184421a` |
+| 09-15 | 远程 MCP、一次性配对码和三客户端接入引导 | `667bcc9` |
+
+准备页目前采用桌面分栏、手机纵向分组，房间邀请、玩家名单、牌桌设置与开局操作分别呈现。
+
+## 详细文档
+
+- [Agent 快速开始：Codex / Claude Code / DeepSeek](docs/AGENT_QUICKSTART.md)
+- [HTTP / 本地 MCP 接口与配置](docs/AGENT_INTERFACE.md) · [OpenAPI](docs/AGENT_OPENAPI.json)
+- [本地 Codex 与 DeepSeek 对战辅助流程](docs/CODEX_DEEPSEEK_DUEL.md)
+- [状态与会话协议 v2](docs/STATE_AND_SESSION.md) · [重连验收](RECONNECT_TEST_GUIDE.md)
+- [单人观察训练与实时教练](docs/OBSERVATION_TRAINING.md)
+- [Agent 验收记录](docs/AGENT_ACCEPTANCE.md) · [UI 验收](UI_REFACTOR_ACCEPTANCE.md) · [手机适配](MOBILE_ADAPTATION.md)
